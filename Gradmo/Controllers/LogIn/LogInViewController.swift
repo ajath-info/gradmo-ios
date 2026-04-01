@@ -11,7 +11,6 @@ private enum LoginMethod {
     case phone
     case email
 }
-//GIT COMMIT CHECK
 
 final class LogInViewController: UIViewController, UITextFieldDelegate {
 

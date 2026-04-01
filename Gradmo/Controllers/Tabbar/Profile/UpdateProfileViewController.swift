@@ -23,6 +23,7 @@ class UpdateProfileViewController: UIViewController {
     @IBOutlet private weak var houseDetail: UITextField!
     @IBOutlet private weak var country: UITextField!
     @IBOutlet private weak var state: UITextField!
+    @IBOutlet private weak var city: UITextField!
     @IBOutlet private weak var pincode: UITextField!
     @IBOutlet private weak var schoolName: UITextField!
     @IBOutlet private weak var grade: UITextField!
@@ -67,7 +68,7 @@ class UpdateProfileViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
-        [profileImage, saveButton, userFullName, userEmail, userPhoneNumber, houseDetail, country, state, pincode, schoolName, grade].forEach {
+        [profileImage, saveButton, userFullName, userEmail, userPhoneNumber, houseDetail, country, state, city, pincode, schoolName, grade].forEach {
             $0?.applyCapsuleCornerRadius()
         }
     }
@@ -133,6 +134,7 @@ private extension UpdateProfileViewController {
             houseDetail,
             country,
             state,
+            city,
             pincode,
             schoolName,
             grade
@@ -172,6 +174,7 @@ private extension UpdateProfileViewController {
         houseDetail.text = UserCache.address()
         country.text = UserCache.country().isEmpty ? "India" : UserCache.country()
         state.text = UserCache.state()
+        city.text = UserCache.city()
         pincode.text = UserCache.pincode()
         schoolName.text = UserCache.schoolCollegeName()
         grade.text = UserCache.grade()
@@ -201,6 +204,7 @@ private extension UpdateProfileViewController {
             userPhoneNumber,
             userEmail,
             houseDetail,
+            city,
             pincode,
             schoolName,
             grade
@@ -304,7 +308,7 @@ extension UpdateProfileViewController {
         let address = (houseDetail.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let countryValue = (country.text ?? "India").trimmingCharacters(in: .whitespacesAndNewlines)
         let stateValue = (state.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let cityValue = inferredCity(from: address)
+        let cityValue = (city.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let pincodeValue = (pincode.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let schoolCollegeName = (schoolName.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let gradeValue = (grade.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -399,11 +403,6 @@ extension UpdateProfileViewController {
                 self.showToastSafely(self.errorMessage(from: error))
             }
         }
-    }
-
-    func inferredCity(from address: String) -> String {
-        _ = address
-        return ""
     }
 
     private func errorMessage(from error: Error) -> String {

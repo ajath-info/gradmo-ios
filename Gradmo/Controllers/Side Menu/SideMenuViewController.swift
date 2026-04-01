@@ -150,7 +150,13 @@ class SideMenuViewController: UIViewController {
     }
     
     @IBAction func updatePasswordButtonTapped(_ sender: UIButton!){
-        showToastSafely("Under Development")
+        guard let homeVC = self.parent as? HomeViewController else { return }
+        homeVC.hideSideMenu()
+        let storyboard = UIStoryboard(name: "Home", bundle: nil)
+        let vc = storyboard.instantiateViewController(withIdentifier: "UpdatePasswordViewController") as! UpdatePasswordViewController
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            homeVC.navigationController?.pushViewController(vc, animated: true)
+        }
     }
 }
 
@@ -184,7 +190,8 @@ class SideMenuViewController: UIViewController {
         }
 
         func logoutUser() {
-            let userId = UserCache.userID()
+            let role = UserCache.getUserRole()
+            let userId = UserCache.currentScopedUserID(for: role)
             guard !userId.isEmpty else {
                 showToastSafely("Unable to logout. Missing user details.")
                 return
@@ -198,7 +205,7 @@ class SideMenuViewController: UIViewController {
             LoaderManager.shared.show()
 
             let key: String
-            switch UserCache.getUserRole() {
+            switch role {
             case .student:
                 key = "student_id"
             case .teacher:
@@ -207,9 +214,7 @@ class SideMenuViewController: UIViewController {
                 key = "institute_id"
             }
 
-            let params: [String: Any] = [
-                key: userId
-            ]
+            let params: [String: Any] = [key: userId]
 
             Task { [weak self] in
                 guard let self else { return }

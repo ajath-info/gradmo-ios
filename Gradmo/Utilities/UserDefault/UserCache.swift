@@ -77,6 +77,25 @@ class UserCache:NSObject {
     class func grade() -> String {
         return UserDefaults.standard.string(forKey: UserCacheKeys.grade) ?? ""
     }
+    class func studentID() -> String {
+        return UserDefaults.standard.string(forKey: UserCacheKeys.studentId) ?? ""
+    }
+    class func teacherID() -> String {
+        return UserDefaults.standard.string(forKey: UserCacheKeys.teacherId) ?? ""
+    }
+    class func instituteID() -> String {
+        return UserDefaults.standard.string(forKey: UserCacheKeys.instituteId) ?? ""
+    }
+    class func currentScopedUserID(for role: UserRole) -> String {
+        switch role {
+        case .student:
+            return studentID().isEmpty ? userID() : studentID()
+        case .teacher:
+            return teacherID().isEmpty ? userID() : teacherID()
+        case .institute:
+            return instituteID().isEmpty ? userID() : instituteID()
+        }
+    }
     class func roleID()->Int {
         return UserDefaults.standard.object(forKey: SessionUser.roleId) as? Int ?? 0
     }
@@ -226,6 +245,14 @@ extension UserCache {
         userDefault.synchronize()
     }
 
+    func saveScopedUserIDs(studentId: String?, teacherId: String?, instituteId: String?) {
+        let userDefault = UserDefaults.standard
+        userDefault.setValue(studentId, forKey: UserCacheKeys.studentId)
+        userDefault.setValue(teacherId, forKey: UserCacheKeys.teacherId)
+        userDefault.setValue(instituteId, forKey: UserCacheKeys.instituteId)
+        userDefault.synchronize()
+    }
+
     func saveEditedProfileData(name: String,
                                email: String,
                                phone: String,
@@ -284,6 +311,9 @@ private enum UserCacheKeys {
     static let pincode = "com.motivaid.usercache.pincode"
     static let schoolCollegeName = "com.motivaid.usercache.schoolCollegeName"
     static let grade = "com.motivaid.usercache.grade"
+    static let studentId = "com.motivaid.usercache.studentId"
+    static let teacherId = "com.motivaid.usercache.teacherId"
+    static let instituteId = "com.motivaid.usercache.instituteId"
 }
 
 extension UserCache {

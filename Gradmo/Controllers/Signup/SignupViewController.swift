@@ -219,9 +219,11 @@ extension SignupViewController {
                 }
 
                 if let data = response.data {
-                    self.authUserData.studentId = data.studentId ?? ""
-                    self.authUserData.teacherId = data.teacherId ?? ""
-                    self.authUserData.instituteId = data.instituteId ?? ""
+                    let resolvedUserID = data.resolvedUserID ?? ""
+
+                    self.authUserData.studentId = data.studentId ?? (self.selectedRole == .student ? resolvedUserID : "")
+                    self.authUserData.teacherId = data.teacherId ?? (self.selectedRole == .teacher ? resolvedUserID : "")
+                    self.authUserData.instituteId = data.instituteId ?? (self.selectedRole == .institute ? resolvedUserID : "")
                     self.authUserData.imageURL = data.image ?? ""
                 }
 

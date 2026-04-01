@@ -12,6 +12,8 @@ class StatePickerViewController: UIViewController {
     var states:[String] = []
     var filteredStates:[String] = []
     var onStateSelected: ((String) -> Void)?
+    var searchPlaceholder: String = "Search State"
+    var screenTitle: String = "Select State"
 
     let searchBar = UISearchBar()
     let tableView = UITableView()
@@ -27,8 +29,9 @@ class StatePickerViewController: UIViewController {
     }
 
     func setupSearchBar() {
+        title = screenTitle
         searchBar.delegate = self
-        searchBar.placeholder = "Search State"
+        searchBar.placeholder = searchPlaceholder
         searchBar.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(searchBar)
 

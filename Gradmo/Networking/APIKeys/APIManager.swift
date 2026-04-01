@@ -66,13 +66,13 @@ class APIManager {
             // Success case
             if (200..<300).contains(statusCode) {
                 if expectsWrappedResponse {
-                    let apiResponse = try JSONDecoder().decode(APIResponse<T>.self, from: data)
+                    let apiResponse = try decodeResponse(APIResponse<T>.self, from: data)
                     guard apiResponse.status.lowercased() == "success", let result = apiResponse.data else {
                         throw NetworkError.apiError(apiResponse.message ?? "Unknown API error")
                     }
                     return result
                 } else {
-                    return try JSONDecoder().decode(T.self, from: data)
+                    return try decodeResponse(T.self, from: data)
                 }
             } else {
                 // Non-200 status code: try to parse server error
@@ -218,13 +218,13 @@ class APIManager {
 
             if (200..<300).contains(statusCode) {
                 if expectsWrappedResponse {
-                    let apiResponse = try JSONDecoder().decode(APIResponse<T>.self, from: data)
+                    let apiResponse = try decodeResponse(APIResponse<T>.self, from: data)
                     guard apiResponse.status.lowercased() == "success", let result = apiResponse.data else {
                         throw NetworkError.apiError(apiResponse.message ?? "Unknown API error")
                     }
                     return result
                 } else {
-                    return try JSONDecoder().decode(T.self, from: data)
+                    return try decodeResponse(T.self, from: data)
                 }
             } else {
                 if let apiError = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
@@ -299,6 +299,39 @@ class APIManager {
         }
         
         print("================= 🌐 API LOG END =================\n")
+    }
+
+    private func decodeResponse<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch let decodingError as DecodingError {
+            throw NetworkError.decodingError(describe(decodingError))
+        } catch {
+            throw error
+        }
+    }
+
+    private func describe(_ error: DecodingError) -> String {
+        switch error {
+        case .typeMismatch(let type, let context):
+            return "Type mismatch for \(type) at \(codingPathString(context.codingPath)): \(context.debugDescription)"
+        case .valueNotFound(let type, let context):
+            return "Value not found for \(type) at \(codingPathString(context.codingPath)): \(context.debugDescription)"
+        case .keyNotFound(let key, let context):
+            return "Key '\(key.stringValue)' not found at \(codingPathString(context.codingPath)): \(context.debugDescription)"
+        case .dataCorrupted(let context):
+            return "Data corrupted at \(codingPathString(context.codingPath)): \(context.debugDescription)"
+        @unknown default:
+            return error.localizedDescription
+        }
+    }
+
+    private func codingPathString(_ codingPath: [CodingKey]) -> String {
+        if codingPath.isEmpty {
+            return "root"
+        }
+
+        return codingPath.map(\.stringValue).joined(separator: ".")
     }
 
 }

@@ -273,7 +273,7 @@
                                                     <constraint firstAttribute="height" constant="100" id="2rl-C3-5Y2"/>
                                                 </constraints>
                                             </stackView>
-                                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="profilePic" translatesAutoresizingMaskIntoConstraints="NO" id="ezO-JW-ktg">
+                                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="gradmo" translatesAutoresizingMaskIntoConstraints="NO" id="ezO-JW-ktg">
                                                 <rect key="frame" x="143.33333333333334" y="180" width="106" height="106"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" secondItem="ezO-JW-ktg" secondAttribute="height" multiplier="1:1" id="2Br-Mg-Y5Y"/>

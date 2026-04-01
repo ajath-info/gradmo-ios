@@ -316,11 +316,16 @@ private extension OTPViewController {
             address: nil,
             latitude: nil,
             longitude: nil,
-            imageURL: nil,
-            roleID: data?.backendUserType ?? data?.userType
+            imageURL: data?.image,
+            roleID: data?.role ?? data?.userType
         )
 
         UserCache.shared.saveUserDataWhenLogin(model: user, token: data?.accessToken)
+        UserCache.shared.saveScopedUserIDs(
+            studentId: data?.studentId,
+            teacherId: data?.teacherId,
+            instituteId: data?.instituteId
+        )
         UserDefaults.standard.set(true, forKey: LoginKeys.isLoggedIn)
     }
 

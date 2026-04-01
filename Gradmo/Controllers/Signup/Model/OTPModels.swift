@@ -46,7 +46,7 @@ struct SendOTPResponse: Decodable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         msg = try container.decodeIfPresent(String.self, forKey: .msg)
         data = try container.decodeIfPresent(SendOTPData.self, forKey: .data)
-        otp = try container.decodeIfPresent(Int.self, forKey: .otp)
+        otp = try container.decodeLossyIntIfPresent(forKey: .otp)
 
         if let boolStatus = try container.decodeIfPresent(Bool.self, forKey: .status) {
             status = boolStatus
@@ -61,10 +61,41 @@ struct SendOTPResponse: Decodable {
 struct SendOTPData: Decodable {
     let mobile: String?
     let userType: String?
+    let userId: String?
+    let name: String?
+    let email: String?
+    let image: String?
+    let role: String?
+    let deviceId: String?
+    let deviceToken: String?
+    let deviceType: String?
 
     enum CodingKeys: String, CodingKey {
         case mobile
-        case userType = "user_type"
+        case userType
+        case userId
+        case name
+        case email
+        case image
+        case role
+        case deviceId = "device_id"
+        case deviceToken = "device_token"
+        case deviceType = "device_type"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        mobile = try container.decodeLossyStringIfPresent(forKey: .mobile)
+        userType = try container.decodeLossyStringIfPresent(forKey: .userType)
+        userId = try container.decodeLossyStringIfPresent(forKey: .userId)
+        name = try container.decodeLossyStringIfPresent(forKey: .name)
+        email = try container.decodeLossyStringIfPresent(forKey: .email)
+        image = try container.decodeLossyStringIfPresent(forKey: .image)
+        role = try container.decodeLossyStringIfPresent(forKey: .role)
+        deviceId = try container.decodeLossyStringIfPresent(forKey: .deviceId)
+        deviceToken = try container.decodeLossyStringIfPresent(forKey: .deviceToken)
+        deviceType = try container.decodeLossyStringIfPresent(forKey: .deviceType)
     }
 }
 
@@ -110,38 +141,109 @@ struct VerifyOTPResponse: Decodable {
 
 struct VerifyOTPUserData: Decodable {
     let userType: String?
+    let userId: String?
     let studentId: String?
     let teacherId: String?
     let instituteId: String?
     let name: String?
     let email: String?
     let mobile: String?
+    let image: String?
+    let role: String?
     let deviceId: String?
     let deviceToken: String?
     let deviceType: String?
-    let backendUserType: String?
     let isProfileCompleted: Int?
     let accessToken: String?
     let tokenType: String?
 
     var resolvedUserID: String? {
-        studentId ?? teacherId ?? instituteId
+        userId ?? studentId ?? teacherId ?? instituteId
     }
 
     enum CodingKeys: String, CodingKey {
         case userType
+        case userId
         case studentId
         case teacherId
         case instituteId
         case name
         case email
         case mobile
+        case image
+        case role
         case deviceId = "device_id"
         case deviceToken = "device_token"
         case deviceType = "device_type"
-        case backendUserType = "user_type"
         case isProfileCompleted = "is_profile_completed"
         case accessToken = "access_token"
         case tokenType = "token_type"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        userType = try container.decodeLossyStringIfPresent(forKey: .userType)
+        userId = try container.decodeLossyStringIfPresent(forKey: .userId)
+        studentId = try container.decodeLossyStringIfPresent(forKey: .studentId)
+        teacherId = try container.decodeLossyStringIfPresent(forKey: .teacherId)
+        instituteId = try container.decodeLossyStringIfPresent(forKey: .instituteId)
+        name = try container.decodeLossyStringIfPresent(forKey: .name)
+        email = try container.decodeLossyStringIfPresent(forKey: .email)
+        mobile = try container.decodeLossyStringIfPresent(forKey: .mobile)
+        image = try container.decodeLossyStringIfPresent(forKey: .image)
+        role = try container.decodeLossyStringIfPresent(forKey: .role)
+        deviceId = try container.decodeLossyStringIfPresent(forKey: .deviceId)
+        deviceToken = try container.decodeLossyStringIfPresent(forKey: .deviceToken)
+        deviceType = try container.decodeLossyStringIfPresent(forKey: .deviceType)
+        isProfileCompleted = try container.decodeLossyIntIfPresent(forKey: .isProfileCompleted)
+        accessToken = try container.decodeLossyStringIfPresent(forKey: .accessToken)
+        tokenType = try container.decodeLossyStringIfPresent(forKey: .tokenType)
+    }
+}
+
+private extension KeyedDecodingContainer {
+    func decodeLossyStringIfPresent(forKey key: Key) throws -> String? {
+        if let stringValue = try? decodeIfPresent(String.self, forKey: key) {
+            return normalizedNullableString(stringValue)
+        }
+
+        if let intValue = try? decodeIfPresent(Int.self, forKey: key) {
+            return String(intValue)
+        }
+
+        if let doubleValue = try? decodeIfPresent(Double.self, forKey: key) {
+            return String(doubleValue)
+        }
+
+        if let boolValue = try? decodeIfPresent(Bool.self, forKey: key) {
+            return boolValue ? "true" : "false"
+        }
+
+        return nil
+    }
+
+    func decodeLossyIntIfPresent(forKey key: Key) throws -> Int? {
+        if let intValue = try? decodeIfPresent(Int.self, forKey: key) {
+            return intValue
+        }
+
+        if let stringValue = try? decodeIfPresent(String.self, forKey: key) {
+            return Int(stringValue)
+        }
+
+        if let doubleValue = try? decodeIfPresent(Double.self, forKey: key) {
+            return Int(doubleValue)
+        }
+
+        return nil
+    }
+
+    private func normalizedNullableString(_ value: String) -> String? {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedValue.isEmpty || trimmedValue.lowercased() == "<null>" {
+            return nil
+        }
+        return trimmedValue
     }
 }

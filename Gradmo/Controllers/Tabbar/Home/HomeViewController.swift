@@ -15,21 +15,29 @@ class HomeViewController: UIViewController {
     @IBOutlet weak var profilePicImageView: UIImageView!
     @IBOutlet weak var userNameLabel: UILabel!
     
+//Student View outlets
     @IBOutlet weak var studentView: UIView!
-    
     @IBOutlet weak var totalEnrollmentInBatchesCountLabel: UILabel!
     @IBOutlet weak var searchTextField: UITextField!
+    @IBOutlet weak var searchScreenButton: UIButton!
     @IBOutlet weak var seeAllButton: UIButton!
     @IBOutlet weak var nearByInstituteCollectionView: UICollectionView!
-
+    
+//Teacher View Outlets
+    @IBOutlet weak var teacherView:UIView!
+    @IBOutlet weak var myBatchesLabel: UILabel!
+    @IBOutlet weak var searchTeacherViewTextField: UITextField!
+    @IBOutlet weak var myBatchesTableView: UITableView!
+    
     private let bannerItems: [UIImage?] = [
         UIImage(named: "institutePlaceholder"),
-        UIImage(named: "bannerPlaceholder"),
-        UIImage(named: "bannerPlaceholder")
+        UIImage(named: "onbardingTeacher"),
+        UIImage(named: "deadEndPlaceholder")
     ]
 
     private var bannerAutoScrollTimer: Timer?
     private var currentBannerIndex = 0
+    private var hasInitializedInfiniteBannerPosition = false
     private var blurOverlayView: UIControl?
     private var sideMenuContainerView: UIView?
     private var sideMenuLeadingConstraint: NSLayoutConstraint?
@@ -38,6 +46,7 @@ class HomeViewController: UIViewController {
     private var overlayBottomConstraint: NSLayoutConstraint?
     private var sideMenuViewController: SideMenuViewController?
     private var isSideMenuVisible = false
+    private let bannerLoopMultiplier = 200
 
     private let nearbyInstitutes: [NearbyInstitute] = [
         NearbyInstitute(
@@ -62,6 +71,27 @@ class HomeViewController: UIViewController {
             modes: [.online, .hybrid, .offline]
         )
     ]
+
+    private let myBatches: [TeacherBatch] = [
+        TeacherBatch(
+            name: "Class 10 Mathematics",
+            teacherName: "Rishabh Tyagi",
+            timing: "4:00 PM - 5:30 PM",
+            image: UIImage(named: "institutePlaceholder")
+        ),
+        TeacherBatch(
+            name: "Science Foundation",
+            teacherName: "Ujjwal Gupta",
+            timing: "10:00 AM - 11:30 AM",
+            image: UIImage(named: "bannerPlaceholder")
+        ),
+        TeacherBatch(
+            name: "Physics Advanced",
+            teacherName: "Prem Chandra",
+            timing: "2:00 PM - 4:00 PM",
+            image: UIImage(named: "institutePlaceholder")
+        )
+    ]
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -71,7 +101,12 @@ class HomeViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        setupView()
+        configureHomeViewForCurrentRole()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        configureInfiniteBannerStartIfNeeded()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -92,8 +127,14 @@ class HomeViewController: UIViewController {
         showSideMenu()
     }
     
+    
+//    StudentView Button
     @IBAction func seeAllButtonTapped(_ sender: UIButton!){
-        
+        openSearchInstituteScreen()
+    }
+    
+    @IBAction func searchStudentViewButtonTapped(_ sender: UIButton!){
+        openSearchInstituteScreen()
     }
     
 }
@@ -107,24 +148,60 @@ extension HomeViewController{
         let modes: [InstituteMode]
     }
 
-    func setupView() {
+    private struct TeacherBatch {
+        let name: String
+        let teacherName: String
+        let timing: String
+        let image: UIImage?
+    }
+
+    func configureHomeViewForCurrentRole() {
+        switch UserCache.getUserRole() {
+        case .teacher:
+            studentView.isHidden = true
+            teacherView.isHidden = false
+            setupTeacherView()
+        case .student, .institute:
+            studentView.isHidden = false
+            teacherView.isHidden = true
+            setupStudentView()
+        }
+    }
+
+    func setupSharedHeader() {
         let fullName = UserCache.fullName()
         userNameLabel.text = fullName.isEmpty ? "Hi" : "Hi, \(fullName)"
+//        profilePicImageView.layer.cornerRadius = self.profilePicImageView.frame.height / 2
+        profilePicImageView.clipsToBounds = true
+
+//        if let imageURL = URL(string: UserCache.profileImageURL()), !UserCache.profileImageURL().isEmpty {
+//            profilePicImageView.sd_setImage(with: imageURL, placeholderImage: UIImage(named: "profilePic"))
+//        } else {
+//            profilePicImageView.image = UIImage(named: "profilePic")
+//        }
+    }
+
+    func setupStudentView() {
+        setupSharedHeader()
         totalEnrollmentInBatchesCountLabel.text = "You’re enrolled in 3 active batches"
         searchTextField.placeholder = "Search an institute to enroll"
+        searchTextField.delegate = self
         searchTextField.setLeftPaddingPoints(40)
         searchTextField.setRightPaddingPoints(15)
         searchTextField.layer.cornerRadius = self.searchTextField.frame.height / 2
         searchTextField.layer.masksToBounds = true
-        profilePicImageView.layer.cornerRadius = self.profilePicImageView.frame.height / 2
-        profilePicImageView.clipsToBounds = true
         seeAllButton.setTitle("See all", for: .normal)
-
-        if let imageURL = URL(string: UserCache.profileImageURL()), !UserCache.profileImageURL().isEmpty {
-            profilePicImageView.sd_setImage(with: imageURL, placeholderImage: UIImage(named: "profilePic"))
-        } else {
-            profilePicImageView.image = UIImage(named: "profilePic")
-        }
+    }
+    
+    func setupTeacherView() {
+        setupSharedHeader()
+        myBatchesLabel.text = "My Batches"
+        searchTeacherViewTextField.placeholder = "Search a batch"
+        searchTeacherViewTextField.setLeftPaddingPoints(40)
+        searchTeacherViewTextField.setRightPaddingPoints(15)
+        searchTeacherViewTextField.layer.cornerRadius = self.searchTeacherViewTextField.frame.height / 2
+        searchTeacherViewTextField.layer.masksToBounds = true
+        myBatchesTableView.reloadData()
     }
 
     func setupCollectionView(){
@@ -140,6 +217,15 @@ extension HomeViewController{
         nearByInstituteCollectionView.dataSource = self
         nearByInstituteCollectionView.registerXib(InstituteDetailCollectionViewCell.self)
         nearByInstituteCollectionView.showsHorizontalScrollIndicator = false
+
+        myBatchesTableView.delegate = self
+        myBatchesTableView.dataSource = self
+        myBatchesTableView.registerXib(MyBatchesTableViewCell.self)
+        myBatchesTableView.separatorStyle = .none
+        myBatchesTableView.backgroundColor = .clear
+        myBatchesTableView.showsVerticalScrollIndicator = false
+        myBatchesTableView.rowHeight = UITableView.automaticDimension
+        myBatchesTableView.estimatedRowHeight = 80
     }
 
     func startBannerAutoScroll() {
@@ -161,30 +247,94 @@ extension HomeViewController{
 
     @objc func scrollToNextBanner() {
         guard !bannerItems.isEmpty else { return }
-        let nextIndex = (currentBannerIndex + 1) % bannerItems.count
+        let nextIndex = currentBannerIndex + 1
         scrollBanner(to: nextIndex, animated: true)
     }
 
     func scrollBanner(to index: Int, animated: Bool) {
-        guard index >= 0, index < bannerItems.count else { return }
-        currentBannerIndex = index
-        bannerCollectionView.scrollToItem(
-            at: IndexPath(item: index, section: 0),
-            at: .left,
-            animated: animated
-        )
+        guard totalBannerItemCount > 0 else { return }
+        let boundedIndex = max(0, min(index, totalBannerItemCount - 1))
+        let normalizedIndex = normalizedBannerIndex(for: boundedIndex)
+        currentBannerIndex = normalizedIndex
+        let pageWidth = bannerScrollStep(for: bannerCollectionView)
+        let targetOffsetX = CGFloat(normalizedIndex) * pageWidth - bannerSectionInsets(for: bannerCollectionView).left
+        let boundedOffsetX = max(-bannerCollectionView.adjustedContentInset.left, targetOffsetX)
+        bannerCollectionView.setContentOffset(CGPoint(x: boundedOffsetX, y: 0), animated: animated)
     }
 
     func bannerCardWidth(for collectionView: UICollectionView) -> CGFloat {
-        return collectionView.bounds.width
+        return collectionView.bounds.width * 0.83
+    }
+
+    func bannerSpacing(for collectionView: UICollectionView) -> CGFloat {
+        return collectionView.bounds.width * 0.04
+    }
+
+    func bannerSectionInsets(for collectionView: UICollectionView) -> UIEdgeInsets {
+        let trailingInset = max(0, collectionView.bounds.width - bannerCardWidth(for: collectionView))
+        return UIEdgeInsets(top: 0, left: 0, bottom: 0, right: trailingInset)
+    }
+
+    func bannerScrollStep(for collectionView: UICollectionView) -> CGFloat {
+        return bannerCardWidth(for: collectionView) + bannerSpacing(for: collectionView)
     }
 
     func updateCurrentBannerIndex() {
-        let pageWidth = bannerCardWidth(for: bannerCollectionView)
+        let pageWidth = bannerScrollStep(for: bannerCollectionView)
         guard pageWidth > 0 else { return }
+        guard totalBannerItemCount > 0 else { return }
 
-        let index = Int(round(bannerCollectionView.contentOffset.x / pageWidth))
-        currentBannerIndex = max(0, min(index, bannerItems.count - 1))
+        let adjustedOffset = bannerCollectionView.contentOffset.x + bannerSectionInsets(for: bannerCollectionView).left
+        let index = Int(round(adjustedOffset / pageWidth))
+        currentBannerIndex = max(0, min(index, totalBannerItemCount - 1))
+        recenterBannerIfNeeded()
+    }
+
+    var totalBannerItemCount: Int {
+        guard bannerItems.count > 1 else { return bannerItems.count }
+        return bannerItems.count * bannerLoopMultiplier
+    }
+
+    func bannerDataIndex(for index: Int) -> Int {
+        guard !bannerItems.isEmpty else { return 0 }
+        let remainder = index % bannerItems.count
+        return remainder >= 0 ? remainder : remainder + bannerItems.count
+    }
+
+    func bannerMidpointIndex() -> Int {
+        guard totalBannerItemCount > 0 else { return 0 }
+        let midpointBlock = (bannerLoopMultiplier / 2) * bannerItems.count
+        return min(midpointBlock, totalBannerItemCount - 1)
+    }
+
+    func normalizedBannerIndex(for index: Int) -> Int {
+        guard totalBannerItemCount > 0, bannerItems.count > 1 else { return index }
+        return min(bannerMidpointIndex() + bannerDataIndex(for: index), totalBannerItemCount - 1)
+    }
+
+    func configureInfiniteBannerStartIfNeeded() {
+        guard !hasInitializedInfiniteBannerPosition else { return }
+        guard bannerCollectionView.bounds.width > 0 else { return }
+        guard totalBannerItemCount > 1 else { return }
+
+        hasInitializedInfiniteBannerPosition = true
+        currentBannerIndex = bannerMidpointIndex()
+        bannerCollectionView.reloadData()
+        bannerCollectionView.layoutIfNeeded()
+        scrollBanner(to: currentBannerIndex, animated: false)
+    }
+
+    func recenterBannerIfNeeded() {
+        guard totalBannerItemCount > 1 else { return }
+
+        let normalizedIndex = normalizedBannerIndex(for: currentBannerIndex)
+        guard normalizedIndex != currentBannerIndex else { return }
+
+        currentBannerIndex = normalizedIndex
+        let pageWidth = bannerScrollStep(for: bannerCollectionView)
+        let targetOffsetX = CGFloat(normalizedIndex) * pageWidth - bannerSectionInsets(for: bannerCollectionView).left
+        let boundedOffsetX = max(-bannerCollectionView.adjustedContentInset.left, targetOffsetX)
+        bannerCollectionView.setContentOffset(CGPoint(x: boundedOffsetX, y: 0), animated: false)
     }
 
     func showSideMenu() {
@@ -315,12 +465,55 @@ extension HomeViewController{
     @objc func menuSwipedLeft() {
         hideSideMenu()
     }
+
+    func openSearchInstituteScreen() {
+        let storyboard = UIStoryboard(name: "Home", bundle: nil)
+        let viewController = storyboard.instantiateViewController(
+            withIdentifier: "SearchInstituteViewController"
+        ) as! SearchInstituteViewController
+        viewController.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(viewController, animated: true)
+    }
+}
+
+extension HomeViewController: UITextFieldDelegate {
+    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
+        if textField == searchTextField {
+            openSearchInstituteScreen()
+            return false
+        }
+
+        return true
+    }
+}
+
+extension HomeViewController: UITableViewDelegate, UITableViewDataSource {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        guard tableView == myBatchesTableView else { return 0 }
+        return myBatches.count
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        guard tableView == myBatchesTableView,
+              let cell = tableView.dequeueReusableCell(withIdentifier: String(describing: MyBatchesTableViewCell.self),for: indexPath) as? MyBatchesTableViewCell else {
+            return UITableViewCell()
+        }
+
+        let batch = myBatches[indexPath.row]
+        cell.configure(
+            batchName: batch.name,
+            teacherName: batch.teacherName,
+            timing: batch.timing,
+            image: batch.image
+        )
+        return cell
+    }
 }
 
 extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         if collectionView == bannerCollectionView {
-            return bannerItems.count
+            return totalBannerItemCount
         }
 
         return nearbyInstitutes.count
@@ -335,7 +528,7 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
                 return UICollectionViewCell()
             }
 
-            cell.configure(image: bannerItems[indexPath.item])
+            cell.configure(image: bannerItems[bannerDataIndex(for: indexPath.item)])
             return cell
         }
 
@@ -372,7 +565,7 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
                         layout collectionViewLayout: UICollectionViewLayout,
                         minimumLineSpacingForSectionAt section: Int) -> CGFloat {
         if collectionView == bannerCollectionView {
-            return 0
+            return bannerSpacing(for: collectionView)
         }
 
         return 12
@@ -382,7 +575,7 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
                         layout collectionViewLayout: UICollectionViewLayout,
                         insetForSectionAt section: Int) -> UIEdgeInsets {
         if collectionView == bannerCollectionView {
-            return .zero
+            return bannerSectionInsets(for: collectionView)
         }
 
         return UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
@@ -419,11 +612,14 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
                                    targetContentOffset: UnsafeMutablePointer<CGPoint>) {
         guard scrollView == bannerCollectionView else { return }
 
-        let pageWidth = bannerCardWidth(for: bannerCollectionView)
+        let pageWidth = bannerScrollStep(for: bannerCollectionView)
         guard pageWidth > 0 else { return }
+        guard totalBannerItemCount > 0 else { return }
 
-        let index = max(0, min(Int(round(targetContentOffset.pointee.x / pageWidth)), bannerItems.count - 1))
-        targetContentOffset.pointee.x = CGFloat(index) * pageWidth
-        currentBannerIndex = index
+        let adjustedOffset = targetContentOffset.pointee.x + bannerSectionInsets(for: bannerCollectionView).left
+        let index = max(0, min(Int(round(adjustedOffset / pageWidth)), totalBannerItemCount - 1))
+        let normalizedIndex = normalizedBannerIndex(for: index)
+        targetContentOffset.pointee.x = CGFloat(normalizedIndex) * pageWidth - bannerSectionInsets(for: bannerCollectionView).left
+        currentBannerIndex = normalizedIndex
     }
 }

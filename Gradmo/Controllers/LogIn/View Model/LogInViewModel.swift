@@ -49,9 +49,17 @@ final class LogInViewModel {
 
     func persistLoginSession(_ data: GradmoLoginUserData?, fallbackRole: UserRole) {
         let user = mapToLoginUser(data)
+        let resolvedRole = mappedRole(from: data?.userType) ?? fallbackRole
+        let resolvedUserID = data?.resolvedUserID
+
         UserCache.shared.saveUserDataWhenLogin(model: user, token: data?.accessToken)
+        UserCache.shared.saveScopedUserIDs(
+            studentId: data?.studentId ?? (resolvedRole == .student ? resolvedUserID : nil),
+            teacherId: data?.teacherId ?? (resolvedRole == .teacher ? resolvedUserID : nil),
+            instituteId: data?.instituteId ?? (resolvedRole == .institute ? resolvedUserID : nil)
+        )
         UserDefaults.standard.set(true, forKey: LoginKeys.isLoggedIn)
-        UserCache.saveSelectedUserRole(mappedRole(from: data?.userType) ?? fallbackRole)
+        UserCache.saveSelectedUserRole(resolvedRole)
     }
 
     private func mapToLoginUser(_ data: GradmoLoginUserData?) -> LoginUser {

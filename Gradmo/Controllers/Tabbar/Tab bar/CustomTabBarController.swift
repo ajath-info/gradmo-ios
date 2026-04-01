@@ -72,6 +72,7 @@ final class CustomTabBarController: UITabBarController {
     private let themeBlue = UIColor(hex: "#3D82F2")
     private let inactiveGray = UIColor(hex: "#7A7A7A")
     private let searchBackground = UIColor(hex: "#F5F7FB")
+    private var cachedBottomSafeAreaInset: CGFloat?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -187,8 +188,12 @@ private extension CustomTabBarController {
     func layoutStandardTabBar() {
         let horizontalInset: CGFloat = 10
         let bottomInset: CGFloat = 8
-        let tabBarHeight: CGFloat = 62
-        let safeAreaBottom = view.safeAreaInsets.bottom
+        let tabBarHeight: CGFloat = 58
+        let currentSafeAreaBottom = view.window?.safeAreaInsets.bottom ?? view.safeAreaInsets.bottom
+        if cachedBottomSafeAreaInset == nil, currentSafeAreaBottom > 0 {
+            cachedBottomSafeAreaInset = currentSafeAreaBottom
+        }
+        let safeAreaBottom = cachedBottomSafeAreaInset ?? currentSafeAreaBottom
         
         var updatedFrame = tabBar.frame
         updatedFrame.size.height = tabBarHeight + safeAreaBottom
