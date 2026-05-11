@@ -196,7 +196,7 @@ private extension OTPViewController {
 
             switch result {
             case .success(let response):
-                guard response.status else {
+                guard response.isSuccess else {
                     self.showToastSafely(response.msg ?? "Invalid OTP")
                     return
                 }
@@ -279,7 +279,7 @@ private extension OTPViewController {
 
             switch result {
             case .success(let response):
-                guard response.status else {
+                guard response.isSuccess else {
                     self.showToastSafely(response.msg ?? "Failed to send OTP")
                     return
                 }
@@ -327,6 +327,7 @@ private extension OTPViewController {
             instituteId: data?.instituteId
         )
         UserDefaults.standard.set(true, forKey: LoginKeys.isLoggedIn)
+        AppDefaultsService.refreshIfAuthenticated()
     }
 
     func errorMessage(from error: Error) -> String {

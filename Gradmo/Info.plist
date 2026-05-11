@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>RazorpayKeyID</key>
+	<string>rzp_test_SfkbMrldtSUP2K</string>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
+	<key>ZoomTestJoinURL</key>
+	<string>https://zoom.us/test</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>
@@ -28,6 +34,10 @@
 		<string>Gilroy-Thin.ttf</string>
 		<string>Gilroy-UltraLight.ttf</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Gradmo uses your location to save your latitude and longitude with your profile details.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Gradmo needs access to your photo library so you can upload images for assessment questions.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -7,6 +7,38 @@
 
 import UIKit
 
+enum InstituteSortOption {
+    case aToZ
+    case zToA
+}
+
+enum InstituteModeOption {
+    case offline
+    case online
+}
+
+struct InstituteFilterState {
+    var sort: InstituteSortOption?
+    var mode: InstituteModeOption?
+    var city: String?
+
+    var hasSelection: Bool {
+        sort != nil || mode != nil || !(city ?? "").isEmpty
+    }
+}
+
+final class InstituteFilterSession {
+    static let shared = InstituteFilterSession()
+
+    var current = InstituteFilterState()
+
+    private init() {}
+
+    func clear() {
+        current = InstituteFilterState()
+    }
+}
+
 final class FilterViewController: UIViewController {
 
     @IBOutlet private weak var mainView: UIView!
@@ -17,40 +49,39 @@ final class FilterViewController: UIViewController {
     @IBOutlet private weak var cityDropdownButton: UIButton!
     @IBOutlet private weak var cityTextfield: UITextField!
     @IBOutlet private weak var applyFilterButton: UIButton!
+    @IBOutlet private weak var clearFilterButton: UIButton!
     @IBOutlet private weak var modeLabel: UILabel!
     @IBOutlet private weak var sortByLabel: UILabel!
     @IBOutlet private weak var cityLabel: UILabel!
     @IBOutlet private weak var filterResultsLabel: UILabel!
 
-    private let cities = [
-        "Kolkata", "Howrah", "New Town", "Salt Lake", "Park Street",
-        "Delhi", "Mumbai", "Bengaluru", "Chennai", "Hyderabad"
-    ]
+    private var cities: [String] = []
 
-    private enum SortOption {
-        case aToZ
-        case zToA
-    }
+    var onApplyFilters: ((InstituteFilterState) -> Void)?
+    var onClearFilters: (() -> Void)?
 
-    private enum ModeOption {
-        case offline
-        case online
-    }
-
-    private var selectedSort: SortOption?
-    private var selectedMode: ModeOption?
+    private var selectedSort: InstituteSortOption?
+    private var selectedMode: InstituteModeOption?
     private var selectedCity: String?
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        restoreSavedFilters()
         setupUI()
         configureSheetPresentationIfNeeded()
     }
 }
 
 private extension FilterViewController {
+    func restoreSavedFilters() {
+        let savedFilters = InstituteFilterSession.shared.current
+        selectedSort = savedFilters.sort
+        selectedMode = savedFilters.mode
+        selectedCity = savedFilters.city
+    }
+
     func setupUI() {
-        view.backgroundColor = UIColor.black.withAlphaComponent(0.2)
+//        view.backgroundColor = UIColor.black.withAlphaComponent(0.2)
         mainView.layer.cornerRadius = 24
         mainView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         cityTextfield.isUserInteractionEnabled = false
@@ -63,8 +94,10 @@ private extension FilterViewController {
         modeLabel.font = UIFont.GilroySemiBold(ofSize: 16)
         cityTextfield.font = UIFont.GilroyRegular(ofSize: 14)
         applyFilterButton.titleLabel?.font = UIFont.GilroySemiBold(ofSize: 15)
+        clearFilterButton.titleLabel?.font = UIFont.GilroySemiBold(ofSize: 15)
 
         applyFilterButton.applyCapsuleCornerRadius()
+        clearFilterButton.applyCapsuleCornerRadius()
         updateSelectionUI()
         updateApplyButton()
     }
@@ -95,11 +128,24 @@ private extension FilterViewController {
     }
 
     func updateApplyButton() {
-        let hasSelection = selectedSort != nil || selectedMode != nil || !(selectedCity ?? "").isEmpty
-        applyFilterButton.setEnabledStyle(hasSelection)
+        applyFilterButton.setEnabledStyle(currentFilters.hasSelection)
+        clearFilterButton.setEnabledStyle(currentFilters.hasSelection)
+    }
+
+    var currentFilters: InstituteFilterState {
+        InstituteFilterState(
+            sort: selectedSort,
+            mode: selectedMode,
+            city: selectedCity
+        )
     }
 
     func openCityPicker() {
+        guard !cities.isEmpty else {
+            showToastSafely("No cities available")
+            return
+        }
+
         let viewController = StatePickerViewController()
         viewController.states = cities
         viewController.screenTitle = "Select City"
@@ -113,6 +159,66 @@ private extension FilterViewController {
 
         let navigationController = UINavigationController(rootViewController: viewController)
         present(navigationController, animated: true)
+    }
+
+    func handleCityDropdownTap() {
+        if !cities.isEmpty {
+            openCityPicker()
+            return
+        }
+
+        fetchInstituteCities()
+    }
+
+    func fetchInstituteCities() {
+        Task { [weak self] in
+            do {
+                let response = try await InstituteCityListService.fetchCities()
+
+                await MainActor.run {
+                    guard let self else { return }
+                    guard response.isSuccess else {
+                        self.showToastSafely(response.msg ?? "Unable to fetch cities")
+                        return
+                    }
+
+                    self.cities = response.cities
+                        .map { $0.city.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+
+                    guard !self.cities.isEmpty else {
+                        self.showToastSafely(response.msg ?? "No cities available")
+                        return
+                    }
+
+                    self.openCityPicker()
+                }
+            } catch {
+                await MainActor.run { [weak self] in
+                    self?.showToastSafely(self?.errorMessage(from: error) ?? "Unable to fetch cities")
+                }
+            }
+        }
+    }
+
+    private func errorMessage(from error: Error) -> String {
+        if let networkError = error as? NetworkError {
+            switch networkError {
+            case .noInternetConnection:
+                return "No internet connection. Please try again."
+            case .apiError(let message):
+                return message
+            case .requestFailed(let message):
+                return message
+            case .validation(let apiError):
+                return apiError.error.first?.message ?? "Validation failed. Please check your input."
+            case .invalidURL:
+                return "Invalid request URL."
+            case .decodingError(let message):
+                return message
+            }
+        }
+        return error.localizedDescription
     }
 }
 
@@ -146,11 +252,25 @@ extension FilterViewController {
     }
 
     @IBAction func cityDropdownTapped(_ sender: UIButton) {
-        openCityPicker()
+        handleCityDropdownTap()
     }
 
     @IBAction func applyFilterTapped(_ sender: UIButton) {
         guard applyFilterButton.isUserInteractionEnabled else { return }
+        let filters = currentFilters
+        InstituteFilterSession.shared.current = filters
+        onApplyFilters?(filters)
+        dismiss(animated: true)
+    }
+    
+    @IBAction func clearFilterButtonTapped(_ sender: UIButton!){
+        selectedSort = nil
+        selectedMode = nil
+        selectedCity = nil
+        updateSelectionUI()
+        updateApplyButton()
+        InstituteFilterSession.shared.clear()
+        onClearFilters?()
         dismiss(animated: true)
     }
 }

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24506" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24504"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <tableViewCell contentMode="scaleToFill" selectionStyle="default" indentationWidth="10" rowHeight="114" id="KGk-i7-Jjw" customClass="PromoCodeTableViewCell" customModule="Gradmo" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="354" height="114"/>
+            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+            <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" tableViewCell="KGk-i7-Jjw" id="H2p-sc-9uM">
+                <rect key="frame" x="0.0" y="0.0" width="354" height="114"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
+                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Fr6-sq-EWb">
+                        <rect key="frame" x="0.0" y="5" width="354" height="104"/>
+                        <subviews>
+                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="G1v-MA-wYW">
+                                <rect key="frame" x="5" y="15" width="344" height="74"/>
+                                <subviews>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="..Promo Code.." textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="HOf-f1-jkB">
+                                        <rect key="frame" x="0.0" y="0.0" width="344" height="74"/>
+                                        <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="17"/>
+                                        <color key="textColor" name="baseColor_Black"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
+                                </subviews>
+                            </stackView>
+                        </subviews>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <constraints>
+                            <constraint firstItem="G1v-MA-wYW" firstAttribute="top" secondItem="Fr6-sq-EWb" secondAttribute="top" constant="15" id="5Ht-En-cmG"/>
+                            <constraint firstAttribute="trailing" secondItem="G1v-MA-wYW" secondAttribute="trailing" constant="5" id="Pbf-JG-oaM"/>
+                            <constraint firstAttribute="bottom" secondItem="G1v-MA-wYW" secondAttribute="bottom" constant="15" id="bVw-3x-3Qo"/>
+                            <constraint firstItem="G1v-MA-wYW" firstAttribute="leading" secondItem="Fr6-sq-EWb" secondAttribute="leading" constant="5" id="fQC-5e-yvh"/>
+                        </constraints>
+                    </view>
+                </subviews>
+                <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                <constraints>
+                    <constraint firstAttribute="trailing" secondItem="Fr6-sq-EWb" secondAttribute="trailing" id="Fuc-lq-tul"/>
+                    <constraint firstItem="Fr6-sq-EWb" firstAttribute="top" secondItem="H2p-sc-9uM" secondAttribute="top" constant="5" id="hTF-E3-4Nj"/>
+                    <constraint firstAttribute="bottom" secondItem="Fr6-sq-EWb" secondAttribute="bottom" constant="5" id="rq1-GO-fkL"/>
+                    <constraint firstItem="Fr6-sq-EWb" firstAttribute="leading" secondItem="H2p-sc-9uM" secondAttribute="leading" id="td0-us-7si"/>
+                </constraints>
+            </tableViewCellContentView>
+            <viewLayoutGuide key="safeArea" id="njF-e1-oar"/>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <connections>
+                <outlet property="mainView" destination="Fr6-sq-EWb" id="VbW-Bi-OEt"/>
+                <outlet property="promoCodeLabel" destination="HOf-f1-jkB" id="ovg-TB-B5b"/>
+            </connections>
+            <point key="canvasLocation" x="42.748091603053432" y="98.591549295774655"/>
+        </tableViewCell>
+    </objects>
+    <resources>
+        <namedColor name="baseColor_Black">
+            <color red="0.023529411764705882" green="0.011764705882352941" blue="0.0078431372549019607" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
+</document>

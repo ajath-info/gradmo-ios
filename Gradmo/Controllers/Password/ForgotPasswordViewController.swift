@@ -131,7 +131,7 @@ extension ForgotPasswordViewController {
 
             switch result {
             case .success(let response):
-                guard response.status else {
+                guard response.isSuccess else {
                     self.showToastSafely(response.msg ?? "Unable to send OTP")
                     return
                 }

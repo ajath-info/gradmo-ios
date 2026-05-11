@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SDWebImage
 
 class SearchInstituteTableViewCell: UITableViewCell {
 
@@ -36,6 +37,12 @@ class SearchInstituteTableViewCell: UITableViewCell {
 
         // Configure the view for the selected state
     }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        instituteImageView.sd_cancelCurrentImageLoad()
+        instituteImageView.image = UIImage(named: "institutePlaceholder")
+    }
     
 }
 
@@ -44,7 +51,8 @@ extension SearchInstituteTableViewCell {
                    address: String,
                    rating: String,
                    instituteID: String,
-                   image: UIImage?,
+                   imageURL: String?,
+                   placeholderImage: UIImage?,
                    showsOnline: Bool,
                    showsOffline: Bool,
                    showsHybrid: Bool) {
@@ -52,7 +60,13 @@ extension SearchInstituteTableViewCell {
         instituteAddressLabel.text = address
         instituteRatingLabel.text = rating
         idNumberLabel.text = instituteID
-        instituteImageView.image = image
+        if let imageURL,
+           !imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let url = URL(string: imageURL) {
+            instituteImageView.sd_setImage(with: url, placeholderImage: placeholderImage)
+        } else {
+            instituteImageView.image = placeholderImage
+        }
         onlineImageView.isHidden = !showsOnline
         offlineImageView.isHidden = !showsOffline
         hybridImageView.isHidden = !showsHybrid

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		655A6A752F942D2F0067A812 /* RazorpayCheckout in Frameworks */ = {isa = PBXBuildFile; productRef = 655A6A742F942D2F0067A812 /* RazorpayCheckout */; };
 		65AF30632F6598FC003C8240 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 65AF30622F6598FC003C8240 /* Alamofire */; };
 		65AF30682F659947003C8240 /* AWSAPIGateway in Frameworks */ = {isa = PBXBuildFile; productRef = 65AF30672F659947003C8240 /* AWSAPIGateway */; };
 		65AF306A2F659947003C8240 /* AWSAppleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 65AF30692F659947003C8240 /* AWSAppleSignIn */; };
@@ -75,6 +76,7 @@
 				65AF30702F659947003C8240 /* AWSAutoScaling in Frameworks */,
 				65AF30862F659947003C8240 /* AWSS3 in Frameworks */,
 				65AF30742F659947003C8240 /* AWSCognitoAuth in Frameworks */,
+				655A6A752F942D2F0067A812 /* RazorpayCheckout in Frameworks */,
 				65AF30802F659947003C8240 /* AWSKinesisVideo in Frameworks */,
 				65AF306A2F659947003C8240 /* AWSAppleSignIn in Frameworks */,
 				65AF30842F659947003C8240 /* AWSKinesisVideoWebRTCStorage in Frameworks */,
@@ -141,6 +143,7 @@
 				65AF30882F659966003C8240 /* SDWebImage */,
 				65AF308A2F659966003C8240 /* SDWebImageMapKit */,
 				65AF308D2F659983003C8240 /* MBProgressHUD */,
+				655A6A742F942D2F0067A812 /* RazorpayCheckout */,
 			);
 			productName = Gradmo;
 			productReference = 65AF2FCB2F659099003C8240 /* Gradmo.app */;
@@ -175,6 +178,7 @@
 				65AF30662F659947003C8240 /* XCRemoteSwiftPackageReference "aws-sdk-ios-spm" */,
 				65AF30872F659966003C8240 /* XCRemoteSwiftPackageReference "SDWebImage" */,
 				65AF308C2F659983003C8240 /* XCRemoteSwiftPackageReference "MBProgressHUD" */,
+				655A6A732F942D2F0067A812 /* XCRemoteSwiftPackageReference "razorpay-pod" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 65AF2FCC2F659099003C8240 /* Products */;
@@ -214,7 +218,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = MXT2VU2MZB;
+				DEVELOPMENT_TEAM = S75453DKBL;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Gradmo/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -249,7 +253,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = MXT2VU2MZB;
+				DEVELOPMENT_TEAM = S75453DKBL;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Gradmo/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -420,6 +424,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		655A6A732F942D2F0067A812 /* XCRemoteSwiftPackageReference "razorpay-pod" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/razorpay/razorpay-pod.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.5.3;
+			};
+		};
 		65AF30612F6598FC003C8240 /* XCRemoteSwiftPackageReference "Alamofire" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Alamofire/Alamofire.git";
@@ -455,6 +467,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		655A6A742F942D2F0067A812 /* RazorpayCheckout */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 655A6A732F942D2F0067A812 /* XCRemoteSwiftPackageReference "razorpay-pod" */;
+			productName = RazorpayCheckout;
+		};
 		65AF30622F6598FC003C8240 /* Alamofire */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 65AF30612F6598FC003C8240 /* XCRemoteSwiftPackageReference "Alamofire" */;

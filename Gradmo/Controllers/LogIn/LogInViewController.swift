@@ -56,7 +56,7 @@ private extension LogInViewController {
         authUserData.userRole = selectedRole
 
         gradmoHeadingLabel.text = "Welcome Back"
-        gradmoHeadingLabel.font = UIFont.GilroyBold(ofSize: 36)
+        gradmoHeadingLabel.font = UIFont.GilroyBold(ofSize: 26)
         userPhoneNumber.font = UIFont.GilroyRegular(ofSize: 12)
         passwordTextfield.font = UIFont.GilroyRegular(ofSize: 12)
         getOtpButton.titleLabel?.font = UIFont.GilroyMedium(ofSize: 15)
@@ -254,7 +254,7 @@ extension LogInViewController {
 
             switch result {
             case .success(let response):
-                guard response.status else {
+                guard response.isSuccess else {
                     self.showToastSafely(response.msg ?? "Unable to send OTP")
                     return
                 }

@@ -52,8 +52,8 @@ private extension SignupViewController {
         gradmoHeadingLabel.text = "Join Gradmo"
         userTypeLabel.text = "As a \(selectedRole.titleText)"
 
-        gradmoHeadingLabel.font = UIFont.GilroyBold(ofSize: 36)
-        userTypeLabel.font = UIFont.GilroyMedium(ofSize: 26)
+        gradmoHeadingLabel.font = UIFont.GilroyBold(ofSize: 26)
+        userTypeLabel.font = UIFont.GilroyMedium(ofSize: 20)
         getOtpButton.titleLabel?.font = UIFont.GilroyMedium(ofSize: 15)
         signinButton.titleLabel?.font = UIFont.GilroyMedium(ofSize: 15)
 
@@ -221,9 +221,9 @@ extension SignupViewController {
                 if let data = response.data {
                     let resolvedUserID = data.resolvedUserID ?? ""
 
-                    self.authUserData.studentId = data.studentId ?? (self.selectedRole == .student ? resolvedUserID : "")
-                    self.authUserData.teacherId = data.teacherId ?? (self.selectedRole == .teacher ? resolvedUserID : "")
-                    self.authUserData.instituteId = data.instituteId ?? (self.selectedRole == .institute ? resolvedUserID : "")
+                    self.authUserData.studentId = data.studentId.map(String.init) ?? (self.selectedRole == .student ? resolvedUserID : "")
+                    self.authUserData.teacherId = data.teacherId.map(String.init) ?? (self.selectedRole == .teacher ? resolvedUserID : "")
+                    self.authUserData.instituteId = data.instituteId.map(String.init) ?? (self.selectedRole == .institute ? resolvedUserID : "")
                     self.authUserData.imageURL = data.image ?? ""
                 }
 

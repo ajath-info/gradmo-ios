@@ -21,12 +21,12 @@ class LoaderHelper : NSObject {
             progressHud.hide(animated: false)
         }
         if #available(iOS 9.0, *) {
-            UIActivityIndicatorView.appearance(whenContainedInInstancesOf: [MBProgressHUD.self]).color =  .white
+            UIActivityIndicatorView.appearance(whenContainedInInstancesOf: [MBProgressHUD.self]).color = Colors.themeColor
         }else {
 //            progressHud.activityIndicatorColor = UIColor.white
         }
         progressHud = MBProgressHUD.showAdded(to: view, animated: true)
-        progressHud.bezelView.color = Colors.darkBlue
+        progressHud.bezelView.color = .clear
         progressHud.bezelView.style = .solidColor
         progressHud.backgroundView.color = backGrounColor
         progressHud.label.text =  isTextMsg ? "Please Wait..." : ""

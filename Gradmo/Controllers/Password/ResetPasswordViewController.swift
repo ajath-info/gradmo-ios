@@ -209,7 +209,8 @@ extension ResetPasswordViewController {
         let parameters: [String: Any] = [
             APIKeys.mobile: mobile,
             APIKeys.password: password,
-            APIKeys.confirmPassword: confirmPassword
+            APIKeys.confirmPassword: confirmPassword,
+            APIKeys.userType: selectedRole.rawValue.lowercased()
         ]
         let url = Constant.baseUrl + API.updatePasswordAPI
 

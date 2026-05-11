@@ -9,69 +9,31 @@ import UIKit
 
 final class SearchInstituteViewController: UIViewController {
 
+    @IBOutlet weak var headerLabel: UILabel!
     @IBOutlet private weak var backButton: UIButton!
     @IBOutlet private weak var searchTextField: UITextField!
     @IBOutlet private weak var bannerCollectionView: UICollectionView!
     @IBOutlet private weak var resultsLabel: UILabel!
     @IBOutlet private weak var instituteTableView: UITableView!
 
-    private let bannerItems: [UIImage?] = [
-        UIImage(named: "institutePlaceholder"),
-        UIImage(named: "bannerPlaceholder"),
-        UIImage(named: "bannerPlaceholder")
-    ]
-
-    private let institutes: [InstituteItem] = [
-        InstituteItem(
-            name: "Apex Commerce Academy",
-            address: "Salt Lake, Kolkata",
-            rating: "4.8",
-            instituteID: "ID: 0234",
-            image: UIImage(named: "institutePlaceholder"),
-            showsOnline: true,
-            showsOffline: true,
-            showsHybrid: false
-        ),
-        InstituteItem(
-            name: "Future Minds Institute",
-            address: "Park Street, Kolkata",
-            rating: "4.6",
-            instituteID: "ID: 0418",
-            image: UIImage(named: "bannerPlaceholder"),
-            showsOnline: false,
-            showsOffline: true,
-            showsHybrid: true
-        ),
-        InstituteItem(
-            name: "Scholars Point",
-            address: "New Town, Kolkata",
-            rating: "4.9",
-            instituteID: "ID: 0562",
-            image: UIImage(named: "institutePlaceholder"),
-            showsOnline: true,
-            showsOffline: true,
-            showsHybrid: true
-        ),
-        InstituteItem(
-            name: "Bright Future Classes",
-            address: "Howrah, Kolkata",
-            rating: "4.7",
-            instituteID: "ID: 0675",
-            image: UIImage(named: "bannerPlaceholder"),
-            showsOnline: true,
-            showsOffline: false,
-            showsHybrid: false
-        )
-    ]
-
+    private var bannerItems: [BannerSliderItem] = []
+    private var displayedInstitutes: [InstituteListingItem] = []
+    private var lastResponse: InstituteListingResponse?
+    private var appliedSearchText: String = ""
     private var bannerAutoScrollTimer: Timer?
     private var currentBannerIndex = 0
+    private var instituteFetchTask: Task<Void, Never>?
+
+    var screenTitleText: String = "Institutes"
+    var shouldShowBackButton: Bool = true
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         setupCollectionView()
         setupTableView()
+        fetchBannerItems()
+        fetchInstitutes()
         startBannerAutoScroll()
     }
 
@@ -92,29 +54,125 @@ final class SearchInstituteViewController: UIViewController {
 
     deinit {
         bannerAutoScrollTimer?.invalidate()
+        instituteFetchTask?.cancel()
     }
 }
 
 private extension SearchInstituteViewController {
-    struct InstituteItem {
-        let name: String
-        let address: String
-        let rating: String
-        let instituteID: String
-        let image: UIImage?
-        let showsOnline: Bool
-        let showsOffline: Bool
-        let showsHybrid: Bool
+    func fetchBannerItems() {
+        Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let banners = try await BannerSliderService.fetchBanners()
+                await MainActor.run {
+                    self.applyBannerItems(banners)
+                }
+            } catch {
+                await MainActor.run {
+                    self.applyBannerItems([])
+                }
+            }
+        }
+    }
+
+    func applyBannerItems(_ items: [BannerSliderItem]) {
+        stopBannerAutoScroll()
+        bannerItems = items
+        currentBannerIndex = 0
+        bannerCollectionView.reloadData()
+        if !items.isEmpty {
+            bannerCollectionView.setContentOffset(.zero, animated: false)
+        }
+        startBannerAutoScroll()
     }
 
     func setupUI() {
+        headerLabel.text = screenTitleText
+        backButton.isHidden = !shouldShowBackButton
         searchTextField.setLeftPaddingPoints(40)
         searchTextField.setRightPaddingPoints(15)
         searchTextField.layer.masksToBounds = true
+        searchTextField.keyboardType = .default
+        searchTextField.returnKeyType = .done
         searchTextField.delegate = self
 
-        resultsLabel.text = "Showing \(institutes.count) of \(institutes.count) results"
         instituteTableView.backgroundColor = .clear
+    }
+
+    func fetchInstitutes() {
+        instituteFetchTask?.cancel()
+        let request = makeInstituteListingRequest()
+
+        instituteFetchTask = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let response = try await InstituteListingService.fetchInstitutes(request: request)
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    self.applyInstituteResponse(response)
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    self.lastResponse = nil
+                    self.displayedInstitutes = []
+                    self.resultsLabel.text = "Showing 0 results"
+                    self.instituteTableView.reloadData()
+                    self.showToastSafely((error as? LocalizedError)?.errorDescription ?? "Unable to fetch institutes")
+                }
+            }
+        }
+    }
+
+    func makeInstituteListingRequest() -> InstituteListingRequest {
+        let filters = InstituteFilterSession.shared.current
+
+        var orderField: String?
+        var orderType: String?
+
+        if let selectedSort = filters.sort {
+            orderField = "name"
+            switch selectedSort {
+            case .aToZ:
+                orderType = "ASC"
+            case .zToA:
+                orderType = "DESC"
+            }
+        }
+
+        let selectedCity = sanitized(filters.city)
+        let searchText = sanitized(appliedSearchText)
+
+        return InstituteListingRequest(
+            batchID: nil,
+            latitude: sanitized(UserCache.latitude()),
+            longitude: sanitized(UserCache.longitude()),
+            orderField: orderField,
+            orderType: orderType,
+            search: searchText,
+            city: selectedCity
+        )
+    }
+
+    func applyInstituteResponse(_ response: InstituteListingResponse) {
+        lastResponse = response
+        displayedInstitutes = response.institutes
+        let totalResults = response.pagination?.totalRecords ?? response.institutes.count
+        resultsLabel.text = "Showing \(displayedInstitutes.count) of \(totalResults) results"
+        instituteTableView.reloadData()
+
+        if displayedInstitutes.isEmpty, let message = response.msg, !message.isEmpty {
+            showToastSafely(message)
+        }
+    }
+
+    func sanitized(_ value: String?) -> String? {
+        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmedValue.isEmpty ? nil : trimmedValue
     }
 
     func setupCollectionView() {
@@ -189,12 +247,25 @@ extension SearchInstituteViewController {
     @IBAction func filterButtonTapped(_ sender: UIButton!){
         let vc = storyboard?.instantiateViewController(withIdentifier: "FilterViewController") as! FilterViewController
         vc.modalPresentationStyle = .pageSheet
+        vc.onApplyFilters = { [weak self] _ in
+            self?.fetchInstitutes()
+        }
+        vc.onClearFilters = { [weak self] in
+            self?.fetchInstitutes()
+        }
         present(vc, animated: true)
     }
 }
 
 extension SearchInstituteViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        guard textField == searchTextField else {
+            textField.resignFirstResponder()
+            return true
+        }
+
+        appliedSearchText = textField.text ?? ""
+        fetchInstitutes()
         textField.resignFirstResponder()
         return true
     }
@@ -202,7 +273,7 @@ extension SearchInstituteViewController: UITextFieldDelegate {
 
 extension SearchInstituteViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        institutes.count
+        displayedInstitutes.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -213,18 +284,50 @@ extension SearchInstituteViewController: UITableViewDelegate, UITableViewDataSou
             return UITableViewCell()
         }
 
-        let institute = institutes[indexPath.row]
+        let institute = displayedInstitutes[indexPath.row]
         cell.configure(
             name: institute.name,
-            address: institute.address,
-            rating: institute.rating,
-            instituteID: institute.instituteID,
-            image: institute.image,
-            showsOnline: institute.showsOnline,
-            showsOffline: institute.showsOffline,
-            showsHybrid: institute.showsHybrid
+            address: institute.formattedAddress,
+            rating: institute.displayRating,
+            instituteID: institute.displayID,
+            imageURL: institute.imageURL,
+            placeholderImage: UIImage(named: "institutePlaceholder"),
+            showsOnline: institute.supportsOnline,
+            showsOffline: institute.supportsOffline,
+            showsHybrid: institute.supportsHybrid
         )
         return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+
+        let institute = displayedInstitutes[indexPath.row]
+        guard let instituteDetailsViewController = storyboard?.instantiateViewController(
+            withIdentifier: "InstituteDetailsViewController"
+        ) as? InstituteDetailsViewController else {
+            return
+        }
+
+        instituteDetailsViewController.selectedInstituteID = institute.instituteID
+        instituteDetailsViewController.instituteNameText = institute.name
+        instituteDetailsViewController.instituteAddressText = institute.formattedAddress
+        instituteDetailsViewController.instituteImageURLText = institute.imageURL
+        instituteDetailsViewController.instituteRatingText = institute.displayRating
+        instituteDetailsViewController.instituteMobileNumberText = sanitized(institute.mobile) ?? "Not available"
+        instituteDetailsViewController.instituteEmailText = sanitized(institute.email) ?? "Not available"
+        instituteDetailsViewController.hidesBottomBarWhenPushed = shouldHideTabBarForInstituteDetailsNavigation()
+
+        navigationController?.pushViewController(instituteDetailsViewController, animated: true)
+    }
+
+    private func shouldHideTabBarForInstituteDetailsNavigation() -> Bool {
+        guard let tabBarController else {
+            return false
+        }
+
+        return tabBarController.selectedIndex == CustomTabBarController.AppTab.secondary.rawValue
+            && !shouldShowBackButton
     }
 }
 
@@ -235,13 +338,15 @@ extension SearchInstituteViewController: UICollectionViewDelegate, UICollectionV
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         guard let cell = collectionView.dequeueReusableCell(
-            withReuseIdentifier: String(describing: BannerCollectionViewCell.self),
-            for: indexPath
-        ) as? BannerCollectionViewCell else {
+            withReuseIdentifier: String(describing: BannerCollectionViewCell.self),for: indexPath) as? BannerCollectionViewCell else {
             return UICollectionViewCell()
         }
 
-        cell.configure(image: bannerItems[indexPath.item])
+        cell.configure(
+            imageURL: bannerItems[indexPath.item].imageURL,
+            placeholder: UIImage(named: "bannerPlaceholder")
+        )
+        cell.bannerImageView.layer.cornerRadius = 0
         return cell
     }
 

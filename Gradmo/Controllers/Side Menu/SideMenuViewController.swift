@@ -7,6 +7,7 @@
 
 import UIKit
 import SDWebImage
+import Alamofire
 
 private struct ActionResponse: Decodable {
     let isSuccess: Bool
@@ -75,7 +76,24 @@ class SideMenuViewController: UIViewController {
     }
     
     @IBAction func myBatchesButtonTapped(_ sender: UIButton!){
-        showToastSafely("Under Development")
+        guard let homeVC = self.parent as? HomeViewController else { return }
+
+        homeVC.hideSideMenu()
+
+        let storyboard = UIStoryboard(name: "Home", bundle: nil)
+        guard let batchViewController = storyboard.instantiateViewController(
+            withIdentifier: "BatchViewController"
+        ) as? BatchViewController else {
+            return
+        }
+
+        batchViewController.headerTitleText = "My Batch"
+        batchViewController.shouldFetchEnrolledBatches = true
+        batchViewController.hidesBottomBarWhenPushed = true
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            homeVC.navigationController?.pushViewController(batchViewController, animated: true)
+        }
     }
     
     @IBAction func editProfileButtonTapped(_ sender: UIButton!){
@@ -246,12 +264,17 @@ class SideMenuViewController: UIViewController {
         }
 
         func deleteAccount() {
-            guard !UserCache1.authtoken().isEmpty else {
+            let accessToken = UserCache1.authtoken()
+
+            guard !accessToken.isEmpty else {
                 showToastSafely("Session expired. Please sign in again.")
                 return
             }
 
             LoaderManager.shared.show()
+            let headers: HTTPHeaders = [
+                "Authorization": "Bearer \(accessToken)"
+            ]
 
             Task { [weak self] in
                 guard let self else { return }
@@ -260,6 +283,7 @@ class SideMenuViewController: UIViewController {
                     let response: ActionResponse = try await APIManager.shared.post(
                         Constant.baseUrl + API.deleteAccountAPI,
                         parameters: nil,
+                        headers: headers,
                         expectsWrappedResponse: false
                     )
 

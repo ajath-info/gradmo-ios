@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SDWebImage
 
 class BannerCollectionViewCell: UICollectionViewCell {
 
@@ -19,13 +20,13 @@ class BannerCollectionViewCell: UICollectionViewCell {
 
      override func prepareForReuse() {
          super.prepareForReuse()
+         bannerImageView.sd_cancelCurrentImageLoad()
          bannerImageView.image = nil
      }
 
      // MARK: - Setup
      private func setupUI() {
          bannerImageView.clipsToBounds = true
-         bannerImageView.layer.cornerRadius = 12
          bannerImageView.contentMode = .scaleAspectFill
 
          contentView.layer.cornerRadius = 12
@@ -42,5 +43,18 @@ class BannerCollectionViewCell: UICollectionViewCell {
      // MARK: - Configuration
      func configure(image: UIImage?) {
          bannerImageView.image = image
+     }
+
+     func configure(imageURL: String?, placeholder: UIImage?) {
+         guard
+            let imageURL,
+            !imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            let url = URL(string: imageURL)
+         else {
+            bannerImageView.image = placeholder
+            return
+         }
+
+         bannerImageView.sd_setImage(with: url, placeholderImage: placeholder)
      }
  }

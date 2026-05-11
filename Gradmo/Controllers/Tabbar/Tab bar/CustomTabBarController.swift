@@ -93,10 +93,14 @@ private extension CustomTabBarController {
     func setupTabs() {
         let role = initialUserType
         
-        let homeViewController = UIStoryboard(name: "Home", bundle: nil)
+        let storyboard = UIStoryboard(name: "Home", bundle: nil)
+        let homeViewController = storyboard
             .instantiateViewController(withIdentifier: "HomeViewController")
-        
-        let accountViewController = UIStoryboard(name: "Home", bundle: nil)
+        let instituteViewController = storyboard
+            .instantiateViewController(withIdentifier: "SearchInstituteViewController") as! SearchInstituteViewController
+        instituteViewController.screenTitleText = "Institutes"
+        instituteViewController.shouldShowBackButton = false
+        let accountViewController = storyboard
             .instantiateViewController(withIdentifier: "UpdateProfileViewController")
         
         
@@ -107,10 +111,7 @@ private extension CustomTabBarController {
                 role: role
             ),
             wrappedInNavigationController(
-                SectionPlaceholderViewController(
-                    sectionTitle: AppTab.secondary.title(for: role),
-                    detailText: "Under Development"
-                ),
+                instituteViewController,
                 tab: .secondary,
                 role: role
             ),
@@ -123,10 +124,7 @@ private extension CustomTabBarController {
                 role: role
             ),
             wrappedInNavigationController(
-                SectionPlaceholderViewController(
-                    sectionTitle: AppTab.notifications.title(for: role),
-                    detailText: "Under Development"
-                ),
+                storyboard.instantiateViewController(withIdentifier: "NotificationViewController"),
                 tab: .notifications,
                 role: role
             ),

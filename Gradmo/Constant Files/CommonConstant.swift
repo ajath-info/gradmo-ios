@@ -59,6 +59,16 @@ class CommonClass: NSObject {
         moveToRootViewController(rootVC)
     }
 
+    func moveToLoginScreen(selectedRole: UserRole = .student) {
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        let loginViewController = storyboard.instantiateViewController(
+            withIdentifier: "LogInViewController"
+        ) as! LogInViewController
+        loginViewController.selectedRole = selectedRole
+        loginViewController.shouldHideCancelButton = true
+        moveToRootViewController(loginViewController)
+    }
+
     func moveToRegisterAs() {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         let rootVC = storyboard.instantiateViewController(

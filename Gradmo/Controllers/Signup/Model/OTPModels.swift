@@ -30,10 +30,14 @@ struct SendOTPRequest {
 }
 
 struct SendOTPResponse: Decodable {
-    let status: Bool
+    let status: String
     let msg: String?
     let data: SendOTPData?
     let otp: Int?
+
+    var isSuccess: Bool {
+        status.lowercased() == "true"
+    }
 
     private enum CodingKeys: String, CodingKey {
         case status
@@ -48,12 +52,12 @@ struct SendOTPResponse: Decodable {
         data = try container.decodeIfPresent(SendOTPData.self, forKey: .data)
         otp = try container.decodeLossyIntIfPresent(forKey: .otp)
 
-        if let boolStatus = try container.decodeIfPresent(Bool.self, forKey: .status) {
-            status = boolStatus
-        } else if let stringStatus = try container.decodeIfPresent(String.self, forKey: .status) {
-            status = stringStatus.lowercased() == "true"
+        if let boolStatus = try? container.decodeIfPresent(Bool.self, forKey: .status) {
+            status = boolStatus ? "true" : "false"
+        } else if let stringStatus = try? container.decodeIfPresent(String.self, forKey: .status) {
+            status = stringStatus
         } else {
-            status = false
+            status = "false"
         }
     }
 }
@@ -114,9 +118,13 @@ struct VerifyOTPRequest {
 }
 
 struct VerifyOTPResponse: Decodable {
-    let status: Bool
+    let status: String
     let msg: String?
     let data: VerifyOTPUserData?
+
+    var isSuccess: Bool {
+        status.lowercased() == "true"
+    }
 
     private enum CodingKeys: String, CodingKey {
         case status
@@ -129,12 +137,12 @@ struct VerifyOTPResponse: Decodable {
         msg = try container.decodeIfPresent(String.self, forKey: .msg)
         data = try container.decodeIfPresent(VerifyOTPUserData.self, forKey: .data)
 
-        if let boolStatus = try container.decodeIfPresent(Bool.self, forKey: .status) {
-            status = boolStatus
-        } else if let stringStatus = try container.decodeIfPresent(String.self, forKey: .status) {
-            status = stringStatus.lowercased() == "true"
+        if let boolStatus = try? container.decodeIfPresent(Bool.self, forKey: .status) {
+            status = boolStatus ? "true" : "false"
+        } else if let stringStatus = try? container.decodeIfPresent(String.self, forKey: .status) {
+            status = stringStatus
         } else {
-            status = false
+            status = "false"
         }
     }
 }
@@ -142,9 +150,9 @@ struct VerifyOTPResponse: Decodable {
 struct VerifyOTPUserData: Decodable {
     let userType: String?
     let userId: String?
-    let studentId: String?
-    let teacherId: String?
-    let instituteId: String?
+    let studentId: Int?
+    let teacherId: Int?
+    let instituteId: Int?
     let name: String?
     let email: String?
     let mobile: String?
@@ -158,7 +166,7 @@ struct VerifyOTPUserData: Decodable {
     let tokenType: String?
 
     var resolvedUserID: String? {
-        userId ?? studentId ?? teacherId ?? instituteId
+        userId ?? studentId.map(String.init) ?? teacherId.map(String.init) ?? instituteId.map(String.init)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -185,9 +193,9 @@ struct VerifyOTPUserData: Decodable {
 
         userType = try container.decodeLossyStringIfPresent(forKey: .userType)
         userId = try container.decodeLossyStringIfPresent(forKey: .userId)
-        studentId = try container.decodeLossyStringIfPresent(forKey: .studentId)
-        teacherId = try container.decodeLossyStringIfPresent(forKey: .teacherId)
-        instituteId = try container.decodeLossyStringIfPresent(forKey: .instituteId)
+        studentId = try container.decodeLossyIntIfPresent(forKey: .studentId)
+        teacherId = try container.decodeLossyIntIfPresent(forKey: .teacherId)
+        instituteId = try container.decodeLossyIntIfPresent(forKey: .instituteId)
         name = try container.decodeLossyStringIfPresent(forKey: .name)
         email = try container.decodeLossyStringIfPresent(forKey: .email)
         mobile = try container.decodeLossyStringIfPresent(forKey: .mobile)

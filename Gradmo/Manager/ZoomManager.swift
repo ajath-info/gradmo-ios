@@ -1,222 +1,228 @@
-////
-////  ZoomManager.swift
-////  Motivaid
-////
-////  Handles Zoom Meeting SDK initialization, authentication, and meeting joining.
-////  Supports both Meeting ID + passcode and direct join-URL flows.
-////
 //
-//import UIKit
-//import MobileRTC
+//  ZoomManager.swift
+//  Gradmo
 //
-//// MARK: - Zoom Credentials (replace with your actual SDK credentials)
-//private enum ZoomCredentials {
-//    /// Get these from marketplace.zoom.us → Your App → App Credentials
-//    static let sdkKey    = "YOUR_ZOOM_SDK_KEY"
-//    static let sdkSecret = "YOUR_ZOOM_SDK_SECRET"
+//  Created by Codex on 26/04/26.
 //
-//    /// Display name used when joining as a guest
-//    static let displayName = "Motivaid Student"
-//}
-//
-//// MARK: - ZoomManager
-//
-//final class ZoomManager: NSObject {
-//
-//    static let shared = ZoomManager()
-//    private override init() {}
-//
-//    // Keeps a reference to prevent deallocation during a meeting
-//    private var meetingService: MobileRTCMeetingService?
-//
-//    // -------------------------------------------------------------------------
-//    // MARK: - SDK Initialization
-//    // Call once from AppDelegate.application(_:didFinishLaunchingWithOptions:)
-//    // -------------------------------------------------------------------------
-//    func initializeSDK(rootViewController: UIViewController) {
-//        let context = MobileRTCSDKInitContext()
-//        context.domain = "zoom.us"
-//        context.enableLog = false
-//
-//        guard MobileRTC.shared().initialize(context) else {
-//            print("❌ [ZoomManager] SDK failed to initialize")
-//            return
-//        }
-//
-//        MobileRTC.shared().setMobileRTCRootController(
-//            rootViewController.navigationController ?? UINavigationController(rootViewController: rootViewController)
-//        )
-//
-//        authenticateSDK()
-//        print("✅ [ZoomManager] SDK initialized")
-//    }
-//
-//    // -------------------------------------------------------------------------
-//    // MARK: - Authentication
-//    // -------------------------------------------------------------------------
-//    private func authenticateSDK() {
-//        guard let authService = MobileRTC.shared().getAuthService() else { return }
-//        authService.delegate = self
-//
-//        let authContext = MobileRTCSDKAuthContext()
-//        authContext.jwtToken = generateJWT()
-//        authService.sdkAuth(authContext)
-//    }
-//
-//    /// Generates a signed JWT for SDK authentication.
-//    /// In production, generate this on your server and fetch it via API
-//    /// to keep your SDK secret out of the app binary.
-//    private func generateJWT() -> String {
-//        // ⚠️  SERVER-SIDE JWT GENERATION IS STRONGLY RECOMMENDED IN PRODUCTION.
-//        // The implementation below is intentionally left as a placeholder.
-//        // See: https://developers.zoom.us/docs/meeting-sdk/auth/#generate-an-sdk-jwt
-//        return "REPLACE_WITH_JWT_FROM_YOUR_SERVER"
-//    }
-//
-//    // -------------------------------------------------------------------------
-//    // MARK: - Join Meeting by ID + Passcode
-//    // -------------------------------------------------------------------------
-//    func joinMeeting(
-//        meetingNumber: String,
-//        passcode: String,
-//        displayName: String = ZoomCredentials.displayName,
-//        from viewController: UIViewController,
-//        completion: ((JoinResult) -> Void)? = nil
-//    ) {
-//        guard MobileRTC.shared().isRTCAuthorized() else {
-//            completion?(.failure("Zoom SDK is not authorized yet. Please try again."))
-//            return
-//        }
-//
-//        guard let service = MobileRTC.shared().getMeetingService() else {
-//            completion?(.failure("Unable to get meeting service."))
-//            return
-//        }
-//
-//        meetingService = service
-//        meetingService?.delegate = self
-//
-//        MobileRTC.shared().setMobileRTCRootController(
-//            viewController.navigationController
-//            ?? UINavigationController(rootViewController: viewController)
-//        )
-//
-//        let params = MobileRTCMeetingJoinParam()
-//        params.meetingNumber = meetingNumber.replacingOccurrences(of: " ", with: "")
-//        params.password      = passcode
-//        params.userName      = displayName
-//        params.noVideo       = false
-//        params.noAudio       = false
-//
-//        let result = service.joinMeeting(with: params)
-//
-//        if result != .success {
-//            let message = zoomErrorMessage(for: result)
-//            completion?(.failure(message))
-//        } else {
-//            completion?(.success)
-//        }
-//    }
-//
-//    // -------------------------------------------------------------------------
-//    // MARK: - Join via Zoom Deep Link / URL
-//    // Opens the Zoom app (or Zoom website fallback) with a pre-filled join URL.
-//    // -------------------------------------------------------------------------
-//    func joinMeetingViaLink(_ urlString: String, from viewController: UIViewController) {
-//        // Validate & open the link
-//        var finalURL: URL?
-//
-//        if let url = URL(string: urlString), UIApplication.shared.canOpenURL(url) {
-//            finalURL = url
-//        } else if let encoded = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-//                  let url = URL(string: encoded) {
-//            finalURL = url
-//        }
-//
-//        guard let url = finalURL else {
-//            showAlert(on: viewController, title: "Invalid Link", message: "The class link appears to be invalid. Please contact your counselor.")
-//            return
-//        }
-//
-//        UIApplication.shared.open(url, options: [:]) { success in
-//            if !success {
-//                self.showAlert(on: viewController, title: "Zoom Not Installed",
-//                               message: "Could not open Zoom. Please install the Zoom app and try again.")
-//            }
-//        }
-//    }
-//
-//    // -------------------------------------------------------------------------
-//    // MARK: - Helpers
-//    // -------------------------------------------------------------------------
-//    private func zoomErrorMessage(for result: MobileRTCMeetError) -> String {
-//        switch result {
-//        case .success:             return "Success"
-//        case .networkUnavailable:  return "No internet connection. Please check your network."
-//        case .meetingNotExist:     return "This meeting does not exist or has ended."
-//        case .meetingPasswordError: return "Incorrect passcode. Please try again."
-//        case .userNotFound:        return "User not found."
-//        default:                   return "Unable to join the meeting. Please try again."
-//        }
-//    }
-//
-//    private func showAlert(on vc: UIViewController, title: String, message: String) {
-//        DispatchQueue.main.async {
-//            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-//            alert.addAction(UIAlertAction(title: "OK", style: .default))
-//            vc.present(alert, animated: true)
-//        }
-//    }
-//}
-//
-//// MARK: - Result Type
-//
-//extension ZoomManager {
-//    enum JoinResult {
-//        case success
-//        case failure(String)
-//    }
-//}
-//
-//// MARK: - MobileRTCAuthDelegate
-//
-//extension ZoomManager: MobileRTCAuthDelegate {
-//    func onMobileRTCAuthReturn(_ returnValue: MobileRTCAuthError) {
-//        switch returnValue {
-//        case .success:
-//            print("✅ [ZoomManager] SDK authenticated successfully")
-//        case .keyOrSecretWrong:
-//            print("❌ [ZoomManager] Auth failed – check SDK Key/Secret or JWT token")
-//        default:
-//            print("⚠️ [ZoomManager] Auth returned: \(returnValue.rawValue)")
-//        }
-//    }
-//
-//    func onMobileRTCAuthExpired() {
-//        print("⚠️ [ZoomManager] Auth token expired – re-authenticating")
-//        authenticateSDK()
-//    }
-//}
-//
-//// MARK: - MobileRTCMeetingServiceDelegate
-//
-//extension ZoomManager: MobileRTCMeetingServiceDelegate {
-//    func onMeetingStateChange(_ state: MobileRTCMeetingState) {
-//        switch state {
-//        case .connecting:
-//            print("📡 [ZoomManager] Connecting to meeting…")
-//        case .inMeeting:
-//            print("✅ [ZoomManager] In meeting")
-//        case .ended:
-//            print("🔚 [ZoomManager] Meeting ended")
-//        case .failed:
-//            print("❌ [ZoomManager] Meeting failed")
-//        default:
-//            break
-//        }
-//    }
-//
-//    func onMeetingError(_ error: MobileRTCMeetError, message: String?) {
-//        print("❌ [ZoomManager] Meeting error \(error.rawValue): \(message ?? "")")
-//    }
-//}
+
+import UIKit
+
+#if canImport(MobileRTC)
+import MobileRTC
+#endif
+
+final class ZoomManager: NSObject {
+    static let shared = ZoomManager()
+    private var sdkDidInitialize = false
+    private var sdkDidAuthenticate = false
+
+    private override init() {
+        super.init()
+    }
+
+    func prepareSDKIfPossible() {
+        #if canImport(MobileRTC)
+        prepareEmbeddedSDKIfPossible()
+        #endif
+    }
+
+    func openLiveClass(from presenter: UIViewController, joinURLString: String?) {
+        let target = resolveJoinTarget(from: joinURLString)
+
+        #if canImport(MobileRTC)
+        if attemptEmbeddedJoin(from: presenter, target: target) {
+            return
+        }
+        #endif
+
+        openExternally(from: presenter, target: target)
+    }
+}
+
+private extension ZoomManager {
+    struct ZoomJoinTarget {
+        let rawValue: String
+        let joinURL: URL?
+        let meetingNumber: String?
+        let passcode: String?
+        let displayName: String
+    }
+
+    func resolveJoinTarget(from joinURLString: String?) -> ZoomJoinTarget {
+        let fallbackURLString = (Bundle.main.object(forInfoDictionaryKey: "ZoomTestJoinURL") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedRawValue = sanitized(joinURLString) ?? sanitized(fallbackURLString) ?? "https://zoom.us/test"
+        let joinURL = URL(string: resolvedRawValue)
+        let parsedMeetingNumber = meetingNumber(from: resolvedRawValue, url: joinURL)
+        let parsedPasscode = passcode(from: joinURL)
+
+        return ZoomJoinTarget(
+            rawValue: resolvedRawValue,
+            joinURL: joinURL,
+            meetingNumber: parsedMeetingNumber,
+            passcode: parsedPasscode,
+            displayName: resolvedDisplayName()
+        )
+    }
+
+    func resolvedDisplayName() -> String {
+        let fullName = UserCache.fullName().trimmingCharacters(in: .whitespacesAndNewlines)
+        if !fullName.isEmpty {
+            return fullName
+        }
+
+        switch UserCache.getUserRole() {
+        case .teacher:
+            return "Gradmo Teacher"
+        case .student:
+            return "Gradmo Student"
+        case .institute:
+            return "Gradmo Institute"
+        }
+    }
+
+    func meetingNumber(from rawValue: String, url: URL?) -> String? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.allSatisfy(\.isNumber), !trimmed.isEmpty {
+            return trimmed
+        }
+
+        if let pathComponents = url?.pathComponents {
+            for (index, component) in pathComponents.enumerated() where component == "j" {
+                let nextIndex = pathComponents.index(after: index)
+                guard nextIndex < pathComponents.endIndex else { continue }
+
+                let candidate = pathComponents[nextIndex]
+                if candidate.allSatisfy(\.isNumber) {
+                    return candidate
+                }
+            }
+        }
+
+        return nil
+    }
+
+    func passcode(from url: URL?) -> String? {
+        guard let components = URLComponents(url: url ?? URL(fileURLWithPath: ""), resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+
+        return components.queryItems?.first(where: { item in
+            let name = item.name.lowercased()
+            return name == "pwd" || name == "passcode"
+        })?.value
+    }
+
+    func sanitized(_ value: String?) -> String? {
+        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmedValue.isEmpty ? nil : trimmedValue
+    }
+
+    func openExternally(from presenter: UIViewController, target: ZoomJoinTarget) {
+        let application = UIApplication.shared
+
+        if let joinURL = target.joinURL, application.canOpenURL(joinURL) {
+            application.open(joinURL)
+            return
+        }
+
+        if let meetingNumber = target.meetingNumber,
+           let encodedName = target.displayName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+           let deepLink = URL(string: "zoomus://zoom.us/join?confno=\(meetingNumber)&uname=\(encodedName)"),
+           application.canOpenURL(deepLink) {
+            application.open(deepLink)
+            return
+        }
+
+        presenter.showToastSafely("Unable to open live class")
+    }
+}
+
+#if canImport(MobileRTC)
+extension ZoomManager: MobileRTCAuthDelegate, MobileRTCMeetingServiceDelegate {
+    private struct SDKConfiguration {
+        let domain: String
+        let jwtToken: String?
+    }
+
+    func attemptEmbeddedJoin(from presenter: UIViewController, target: ZoomJoinTarget) -> Bool {
+        prepareEmbeddedSDKIfPossible()
+
+        guard sdkDidInitialize else { return false }
+        if let configuration = sdkConfiguration(),
+           let jwtToken = configuration.jwtToken,
+           !jwtToken.isEmpty,
+           !sdkDidAuthenticate {
+            return false
+        }
+        guard let meetingNumber = target.meetingNumber, !meetingNumber.isEmpty else { return false }
+        guard let meetingService = MobileRTC.shared().getMeetingService() else { return false }
+
+        meetingService.delegate = self
+
+        let joinParameters = MobileRTCMeetingJoinParam()
+        joinParameters.userName = target.displayName
+        joinParameters.meetingNumber = meetingNumber
+        joinParameters.password = target.passcode
+
+        let joinError = meetingService.joinMeeting(with: joinParameters)
+        if joinError == .success {
+            return true
+        }
+
+        presenter.showToastSafely("Zoom SDK join failed: \(joinError.rawValue)")
+        return false
+    }
+
+    func prepareEmbeddedSDKIfPossible() {
+        guard !sdkDidInitialize else { return }
+        guard let configuration = sdkConfiguration() else { return }
+
+        let context = MobileRTCSDKInitContext()
+        context.domain = configuration.domain
+        context.enableLog = true
+
+        guard MobileRTC.shared().initialize(context) else { return }
+
+        sdkDidInitialize = true
+
+        guard let jwtToken = configuration.jwtToken, !jwtToken.isEmpty else {
+            sdkDidAuthenticate = true
+            return
+        }
+
+        guard let authService = MobileRTC.shared().getAuthService() else { return }
+        authService.delegate = self
+        authService.jwtToken = jwtToken
+        authService.sdkAuth()
+    }
+
+    func sdkConfiguration() -> SDKConfiguration? {
+        let cachedDomain = UserCache.zoomSDKDomain().trimmingCharacters(in: .whitespacesAndNewlines)
+        let cachedJWTToken = UserCache.zoomSDKJWTToken().trimmingCharacters(in: .whitespacesAndNewlines)
+        let bundleDomain = (Bundle.main.object(forInfoDictionaryKey: "ZoomSDKDomain") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let bundleJWTToken = (Bundle.main.object(forInfoDictionaryKey: "ZoomSDKJWTToken") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let domain = cachedDomain.isEmpty ? bundleDomain : cachedDomain
+        let jwtToken = cachedJWTToken.isEmpty ? bundleJWTToken : cachedJWTToken
+
+        guard !domain.isEmpty else { return nil }
+
+        return SDKConfiguration(
+            domain: domain,
+            jwtToken: jwtToken.isEmpty ? nil : jwtToken
+        )
+    }
+
+    func onMobileRTCAuthReturn(_ returnValue: MobileRTCAuthError) {
+        sdkDidAuthenticate = (returnValue == .success)
+        debugPrint("Zoom SDK auth result: \(returnValue.rawValue)")
+    }
+
+    func onMeetingStateChange(_ state: MobileRTCMeetingState) {
+        debugPrint("Zoom meeting state changed: \(state.rawValue)")
+    }
+}
+#endif

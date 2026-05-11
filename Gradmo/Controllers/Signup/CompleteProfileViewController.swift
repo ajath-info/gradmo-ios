@@ -22,36 +22,35 @@ class CompleteProfileViewController: UIViewController {
     @IBOutlet private weak var houseDetail: UITextField!
     @IBOutlet private weak var country: UITextField!
     @IBOutlet private weak var state: UITextField!
+    @IBOutlet private weak var city: UITextField!
     @IBOutlet private weak var pincode: UITextField!
     @IBOutlet private weak var schoolName: UITextField!
     @IBOutlet private weak var grade: UITextField!
     @IBOutlet private weak var saveButton: UIButton!
 
-    let countries = ["India", "USA", "UK", "Canada", "Australia"]
-    let statesIndia = [
-        "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
-        "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
-        "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
-        "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
-        "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
-        "Uttar Pradesh", "Uttarakhand", "West Bengal"
-    ]
-
     var selectedRole: UserRole = .student
     var authUserData: AuthUserData?
     private let viewModel = CompleteProfileViewModel()
     private var selectedProfileImageData: Data?
+    private var countries: [LocationCountry] = []
+    private var states: [LocationState] = []
+    private var cities: [LocationCity] = []
+    private var selectedCountry: LocationCountry?
+    private var selectedState: LocationState?
+    private var selectedCity: LocationCity?
+    private var hasRepositionedSaveButton = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         populateInitialValues()
+        fetchCountriesIfNeeded()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
-        [profileImage, saveButton, userFullName, userEmail, userPhoneNumber, houseDetail, country, state, pincode, schoolName, grade].forEach {
+        [profileImage, saveButton, userFullName, userEmail, userPhoneNumber, houseDetail, country, state, city, pincode, schoolName, grade].forEach {
             $0?.applyCapsuleCornerRadius()
         }
     }
@@ -70,8 +69,6 @@ private extension CompleteProfileViewController {
         educationalInformationHeadingLabel.font = UIFont.GilroyBold(ofSize: 21)
         saveButton.titleLabel?.font = UIFont.GilroyMedium(ofSize: 15)
 
-        country.isUserInteractionEnabled = false
-        state.isUserInteractionEnabled = false
         userPhoneNumber.keyboardType = .numberPad
         pincode.keyboardType = .numberPad
         userEmail.keyboardType = .emailAddress
@@ -82,6 +79,7 @@ private extension CompleteProfileViewController {
         enableSaveButton(false)
         setupTextFields()
         configureFieldsForSelectedRole()
+        updateLocationFieldAvailability()
     }
 
     func setupTextFields() {
@@ -92,6 +90,7 @@ private extension CompleteProfileViewController {
             houseDetail,
             country,
             state,
+            city,
             pincode,
             schoolName,
             grade
@@ -115,11 +114,15 @@ private extension CompleteProfileViewController {
         userFullName.text = authUserData.fullName
         userEmail.text = authUserData.email
         userPhoneNumber.text = authUserData.phone
-        country.text = "India"
+        country.text = nil
+        state.text = nil
+        city.text = nil
         if selectedRole == .institute {
             houseDetail.text = ""
             pincode.text = ""
         }
+        resetLocationSelections()
+        updateLocationFieldAvailability()
         textFieldDidChange()
     }
 
@@ -140,12 +143,12 @@ private extension CompleteProfileViewController {
             houseDetail.keyboardType = .default
             pincode.keyboardType = .numberPad
 
-            [country, state].forEach {
+            [country, state, city].forEach {
                 $0?.isHidden = false
             }
 
         case .teacher:
-            lineView.isHidden = false
+            lineView.isHidden = true
             educationalInformationHeadingLabel.isHidden = true
             schoolName.isHidden = true
             grade.isHidden = true
@@ -155,9 +158,10 @@ private extension CompleteProfileViewController {
             houseDetail.keyboardType = .default
             pincode.keyboardType = .numberPad
 
-            [country, state].forEach {
+            [country, state, city].forEach {
                 $0?.isHidden = false
             }
+            repositionSaveButtonForTeacherIfNeeded()
 
         case .institute:
             lineView.isHidden = true
@@ -170,10 +174,203 @@ private extension CompleteProfileViewController {
             houseDetail.keyboardType = .numberPad
             pincode.keyboardType = .numberPad
 
-            [country, state].forEach {
+            [country, state, city].forEach {
                 $0?.isHidden = true
             }
         }
+    }
+
+    func repositionSaveButtonForTeacherIfNeeded() {
+        guard !hasRepositionedSaveButton,
+              let containerView = lineView.superview,
+              let stackView = saveButton.superview as? UIStackView else {
+            return
+        }
+
+        stackView.removeArrangedSubview(saveButton)
+        saveButton.removeFromSuperview()
+        containerView.addSubview(saveButton)
+        saveButton.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            saveButton.topAnchor.constraint(equalTo: lineView.topAnchor, constant: 20),
+            saveButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            saveButton.widthAnchor.constraint(equalTo: containerView.widthAnchor, multiplier: 0.5),
+            saveButton.heightAnchor.constraint(equalToConstant: 50),
+            containerView.bottomAnchor.constraint(greaterThanOrEqualTo: saveButton.bottomAnchor, constant: 20)
+        ])
+
+        hasRepositionedSaveButton = true
+    }
+
+    func fetchCountriesIfNeeded() {
+        guard selectedRole != .institute else { return }
+
+        LoaderManager.shared.show()
+        viewModel.fetchCountries { [weak self] result in
+            guard let self else { return }
+            LoaderManager.shared.hide()
+
+            switch result {
+            case .success(let response):
+                guard response.isSuccess else {
+                    self.showToastSafely(response.msg ?? "Unable to fetch countries")
+                    return
+                }
+                self.countries = response.countries
+            case .failure(let error):
+                self.showToastSafely(self.errorMessage(from: error))
+            }
+        }
+    }
+
+    func fetchStates(country: LocationCountry) {
+        LoaderManager.shared.show()
+        viewModel.fetchStates(request: StateListRequest(countryId: country.id)) { [weak self] result in
+            guard let self else { return }
+            LoaderManager.shared.hide()
+
+            switch result {
+            case .success(let response):
+                guard response.isSuccess else {
+                    self.showToastSafely(response.msg ?? "Unable to fetch states")
+                    return
+                }
+                self.states = response.states
+                self.presentStatePicker()
+            case .failure(let error):
+                self.showToastSafely(self.errorMessage(from: error))
+            }
+        }
+    }
+
+    func fetchCities(state: LocationState) {
+        LoaderManager.shared.show()
+        viewModel.fetchCities(request: CityListRequest(stateId: state.id)) { [weak self] result in
+            guard let self else { return }
+            LoaderManager.shared.hide()
+
+            switch result {
+            case .success(let response):
+                guard response.isSuccess else {
+                    self.showToastSafely(response.msg ?? "Unable to fetch cities")
+                    return
+                }
+                self.cities = response.cities
+                self.presentCityPicker()
+            case .failure(let error):
+                self.showToastSafely(self.errorMessage(from: error))
+            }
+        }
+    }
+
+    func resetLocationSelections() {
+        selectedCountry = nil
+        selectedState = nil
+        selectedCity = nil
+        countries = []
+        states = []
+        cities = []
+    }
+
+    func resetStateSelection() {
+        selectedState = nil
+        selectedCity = nil
+        states = []
+        cities = []
+        state.text = nil
+        city.text = nil
+        updateLocationFieldAvailability()
+    }
+
+    func resetCitySelection() {
+        selectedCity = nil
+        cities = []
+        city.text = nil
+        updateLocationFieldAvailability()
+    }
+
+    func updateLocationFieldAvailability() {
+        let canSelectState = selectedCountry != nil
+        let canSelectCity = selectedState != nil
+
+        styleSelectionField(state, isEnabled: canSelectState)
+        styleSelectionField(city, isEnabled: canSelectCity)
+    }
+
+    func styleSelectionField(_ textField: UITextField, isEnabled: Bool) {
+        textField.alpha = isEnabled ? 1.0 : 0.6
+        textField.textColor = isEnabled ? UIColor.label : UIColor.systemGray
+    }
+
+    func presentCountryPicker() {
+        guard !countries.isEmpty else {
+            showToastSafely("No countries available")
+            return
+        }
+
+        let viewController = StatePickerViewController()
+        viewController.states = countries.map(\.name)
+        viewController.searchPlaceholder = "Search Country"
+        viewController.screenTitle = "Select Country"
+        viewController.onStateSelected = { [weak self] countryName in
+            guard let self,
+                  let selectedCountry = self.countries.first(where: { $0.name == countryName }) else { return }
+            self.selectedCountry = selectedCountry
+            self.country.text = selectedCountry.name
+            self.resetStateSelection()
+            self.fetchStates(country: selectedCountry)
+            self.textFieldDidChange()
+        }
+
+        let navigationController = UINavigationController(rootViewController: viewController)
+        present(navigationController, animated: true)
+    }
+
+    func presentStatePicker() {
+        guard !states.isEmpty else {
+            showToastSafely("No states available")
+            return
+        }
+
+        let viewController = StatePickerViewController()
+        viewController.states = states.map(\.name)
+        viewController.searchPlaceholder = "Search State"
+        viewController.screenTitle = "Select State"
+        viewController.onStateSelected = { [weak self] stateName in
+            guard let self,
+                  let selectedState = self.states.first(where: { $0.name == stateName }) else { return }
+            self.selectedState = selectedState
+            self.state.text = selectedState.name
+            self.resetCitySelection()
+            self.fetchCities(state: selectedState)
+            self.textFieldDidChange()
+        }
+
+        let navigationController = UINavigationController(rootViewController: viewController)
+        present(navigationController, animated: true)
+    }
+
+    func presentCityPicker() {
+        guard !cities.isEmpty else {
+            showToastSafely("No cities available")
+            return
+        }
+
+        let viewController = StatePickerViewController()
+        viewController.states = cities.map(\.city)
+        viewController.searchPlaceholder = "Search City"
+        viewController.screenTitle = "Select City"
+        viewController.onStateSelected = { [weak self] cityName in
+            guard let self,
+                  let selectedCity = self.cities.first(where: { $0.city == cityName }) else { return }
+            self.selectedCity = selectedCity
+            self.city.text = selectedCity.city
+            self.textFieldDidChange()
+        }
+
+        let navigationController = UINavigationController(rootViewController: viewController)
+        present(navigationController, animated: true)
     }
 }
 
@@ -182,31 +379,43 @@ private extension CompleteProfileViewController {
 extension CompleteProfileViewController {
 
     @IBAction func countryDropdownButtonTapped(_ sender: UIButton) {
-        let alert = UIAlertController(title: "Select Country",
-                                      message: nil,
-                                      preferredStyle: .actionSheet)
+        guard selectedRole != .institute else { return }
 
-        for countryName in countries {
-            alert.addAction(UIAlertAction(title: countryName, style: .default) { _ in
-                self.country.text = countryName
-                self.state.text = ""
-                self.textFieldDidChange()
-            })
+        if countries.isEmpty {
+            fetchCountriesIfNeeded()
+            return
         }
-
-        present(alert, animated: true)
+        presentCountryPicker()
     }
 
     @IBAction func stateDropdownButtonTapped(_ sender: UIButton) {
-        let viewController = StatePickerViewController()
-        viewController.states = statesIndia
-        viewController.onStateSelected = { state in
-            self.state.text = state
-            self.textFieldDidChange()
+        guard selectedRole != .institute else { return }
+        guard let selectedCountry else {
+            showToastSafely("Please select country first")
+            return
         }
 
-        let navigationController = UINavigationController(rootViewController: viewController)
-        present(navigationController, animated: true)
+        if states.isEmpty {
+            fetchStates(country: selectedCountry)
+            return
+        }
+
+        presentStatePicker()
+    }
+
+    @IBAction func cityDropdownTapped(_ sender: UIButton) {
+        guard selectedRole != .institute else { return }
+        guard let selectedState else {
+            showToastSafely("Please select state first")
+            return
+        }
+
+        if cities.isEmpty {
+            fetchCities(state: selectedState)
+            return
+        }
+
+        presentCityPicker()
     }
 
     @IBAction func saveButtonTapped(_ sender: UIButton) {
@@ -231,9 +440,13 @@ extension CompleteProfileViewController {
         let email = userEmail.text ?? ""
         let phone = userPhoneNumber.text ?? ""
 
+        let hasValidLocation = selectedRole == .institute ||
+            (selectedCountry != nil && selectedState != nil && selectedCity != nil)
+
         let isValid = !name.isEmpty &&
             email.isValidEmail() &&
-            isValidMobile(phone)
+            isValidMobile(phone) &&
+            hasValidLocation
 
         enableSaveButton(isValid)
     }
@@ -256,12 +469,16 @@ extension CompleteProfileViewController {
         let address = (houseDetail.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let countryValue = selectedRole == .institute
             ? ""
-            : (country.text ?? "India").trimmingCharacters(in: .whitespacesAndNewlines)
+            : (country.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let stateValue = selectedRole == .institute
             ? ""
             : (state.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let cityValue = selectedRole == .institute ? "" : inferredCity(from: address)
+        let cityValue = selectedRole == .institute
+            ? ""
+            : (city.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let pincodeValue = (pincode.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let latitudeValue = UserCache.latitude()
+        let longitudeValue = UserCache.longitude()
         let schoolCollegeName = selectedRole == .student
             ? (schoolName.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             : ""
@@ -281,12 +498,20 @@ extension CompleteProfileViewController {
             return
         }
 
+        if selectedRole != .institute,
+           (countryValue.isEmpty || stateValue.isEmpty || cityValue.isEmpty) {
+            showToastSafely("Please select country, state and city")
+            return
+        }
+
         let request = CompleteProfileUpdateProfileRequest(
             name: name,
             email: email,
             mobile: mobile,
             userType: selectedRole.rawValue.lowercased(),
             address: address,
+            latitude: latitudeValue,
+            longitude: longitudeValue,
             country: countryValue,
             state: stateValue,
             city: cityValue,
@@ -334,11 +559,6 @@ extension CompleteProfileViewController {
                 self.showToastSafely(self.errorMessage(from: error))
             }
         }
-    }
-
-    func inferredCity(from address: String) -> String {
-        _ = address
-        return ""
     }
 
     private func errorMessage(from error: Error) -> String {
@@ -389,6 +609,25 @@ extension CompleteProfileViewController: UITextFieldDelegate {
             let currentText = textField.text ?? ""
             let updatedText = (currentText as NSString).replacingCharacters(in: range, with: string)
             return updatedText.count <= 5
+        }
+
+        return true
+    }
+
+    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
+        if textField == country {
+            countryDropdownButtonTapped(UIButton(type: .system))
+            return false
+        }
+
+        if textField == state {
+            stateDropdownButtonTapped(UIButton(type: .system))
+            return false
+        }
+
+        if textField == city {
+            cityDropdownTapped(UIButton(type: .system))
+            return false
         }
 
         return true

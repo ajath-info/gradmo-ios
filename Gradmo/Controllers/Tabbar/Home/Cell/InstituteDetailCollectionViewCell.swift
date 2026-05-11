@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SDWebImage
 
 class InstituteDetailCollectionViewCell: UICollectionViewCell {
 
@@ -61,7 +62,8 @@ class InstituteDetailCollectionViewCell: UICollectionViewCell {
         }
 
         private func resetUI() {
-            instituteImageView.image = nil
+            instituteImageView.sd_cancelCurrentImageLoad()
+            instituteImageView.image = UIImage(named: "institutePlaceholder")
             instituteNameLabel.text = nil
             instituteAddressLabel.text = nil
             ratingLabel.text = nil
@@ -77,17 +79,32 @@ class InstituteDetailCollectionViewCell: UICollectionViewCell {
         func configure(
             name: String,
             address: String,
-            rating: Double,
-            image: UIImage?,
+            ratingText: String,
+            imageURL: String?,
+            placeholderImage: UIImage?,
             modes: [InstituteMode]
         ) {
             instituteNameLabel.text = name
             instituteAddressLabel.text = address
-            ratingLabel.text = String(format: "%.1f", rating)
-            instituteImageView.image = image
-            
-            updateRating(rating)
+            ratingLabel.text = ratingText
+            if let imageURL,
+               !imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let url = URL(string: imageURL) {
+                instituteImageView.sd_setImage(with: url, placeholderImage: placeholderImage)
+            } else {
+                instituteImageView.image = placeholderImage
+            }
+
+            updateRating(ratingValue(from: ratingText))
             updateModes(modes)
+        }
+
+        private func ratingValue(from ratingText: String) -> Double {
+            let numericPart = ratingText
+                .components(separatedBy: CharacterSet(charactersIn: "0123456789.").inverted)
+                .first { !$0.isEmpty } ?? ""
+
+            return Double(numericPart) ?? 0
         }
 
         // MARK: - Rating Logic

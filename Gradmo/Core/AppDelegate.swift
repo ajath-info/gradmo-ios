@@ -5,15 +5,21 @@
 //  Created by Philanderer on 14/03/26.
 //
 
+import CoreLocation
 import UIKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
+    private let locationCaptureManager = LaunchLocationCaptureManager()
+
 
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        locationCaptureManager.start()
+        UserCache.printSavedDefaults()
+        AppDefaultsService.refreshIfAuthenticated()
+        ZoomManager.shared.prepareSDKIfPossible()
         return true
     }
 
@@ -34,3 +40,57 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 }
 
+private final class LaunchLocationCaptureManager: NSObject, CLLocationManagerDelegate {
+    private let locationManager = CLLocationManager()
+    private var hasRequestedLocation = false
+
+    override init() {
+        super.init()
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+    }
+
+    func start() {
+        UserCache.saveCoordinates(latitude: nil, longitude: nil)
+
+        switch locationManager.authorizationStatus {
+        case .notDetermined:
+            locationManager.requestWhenInUseAuthorization()
+        case .authorizedAlways, .authorizedWhenInUse:
+            requestLocationIfNeeded()
+        case .restricted, .denied:
+            UserCache.printSavedDefaults()
+        @unknown default:
+            break
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        switch manager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            requestLocationIfNeeded()
+        case .restricted, .denied:
+            UserCache.printSavedDefaults()
+        case .notDetermined:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let coordinate = locations.last?.coordinate else { return }
+        UserCache.saveCoordinates(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        UserCache.printSavedDefaults()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        debugPrint("Location capture failed: \(error.localizedDescription)")
+    }
+
+    private func requestLocationIfNeeded() {
+        guard !hasRequestedLocation else { return }
+        hasRequestedLocation = true
+        locationManager.requestLocation()
+    }
+}

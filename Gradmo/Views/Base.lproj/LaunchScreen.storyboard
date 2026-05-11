@@ -17,15 +17,15 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="launchScreen" translatesAutoresizingMaskIntoConstraints="NO" id="UOM-NG-zUa">
-                                <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="launchScreen" translatesAutoresizingMaskIntoConstraints="NO" id="UOM-NG-zUa">
+                                <rect key="frame" x="0.0" y="-5" width="393" height="862"/>
                             </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                         <constraints>
-                            <constraint firstItem="UOM-NG-zUa" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="ULe-LY-oeb"/>
-                            <constraint firstAttribute="bottom" secondItem="UOM-NG-zUa" secondAttribute="bottom" id="a8g-EL-FXq"/>
+                            <constraint firstItem="UOM-NG-zUa" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" constant="-5" id="ULe-LY-oeb"/>
+                            <constraint firstAttribute="bottom" secondItem="UOM-NG-zUa" secondAttribute="bottom" constant="-5" id="a8g-EL-FXq"/>
                             <constraint firstItem="UOM-NG-zUa" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="gUi-Fn-XjP"/>
                             <constraint firstAttribute="trailing" secondItem="UOM-NG-zUa" secondAttribute="trailing" id="wwC-IX-4oS"/>
                         </constraints>

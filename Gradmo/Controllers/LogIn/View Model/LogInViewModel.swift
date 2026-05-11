@@ -53,13 +53,20 @@ final class LogInViewModel {
         let resolvedUserID = data?.resolvedUserID
 
         UserCache.shared.saveUserDataWhenLogin(model: user, token: data?.accessToken)
+        UserCache.shared.saveLoginProfileFields(
+            country: data?.country,
+            pincode: data?.pincode,
+            schoolCollegeName: data?.schoolCollegeName,
+            grade: data?.grade
+        )
         UserCache.shared.saveScopedUserIDs(
-            studentId: data?.studentId ?? (resolvedRole == .student ? resolvedUserID : nil),
-            teacherId: data?.teacherId ?? (resolvedRole == .teacher ? resolvedUserID : nil),
-            instituteId: data?.instituteId ?? (resolvedRole == .institute ? resolvedUserID : nil)
+            studentId: data?.studentId ?? (resolvedRole == .student ? Int(resolvedUserID ?? "") : nil),
+            teacherId: data?.teacherId ?? (resolvedRole == .teacher ? Int(resolvedUserID ?? "") : nil),
+            instituteId: data?.instituteId ?? (resolvedRole == .institute ? Int(resolvedUserID ?? "") : nil)
         )
         UserDefaults.standard.set(true, forKey: LoginKeys.isLoggedIn)
         UserCache.saveSelectedUserRole(resolvedRole)
+        AppDefaultsService.refreshIfAuthenticated()
     }
 
     private func mapToLoginUser(_ data: GradmoLoginUserData?) -> LoginUser {
@@ -74,13 +81,13 @@ final class LogInViewModel {
             isVerified: nil,
             firstName: firstName,
             lastName: lastName.isEmpty ? nil : lastName,
-            state: nil,
-            city: nil,
+            state: data?.state,
+            city: data?.city,
             countryCode: nil,
-            phoneNumber: data?.mobile,
-            address: nil,
-            latitude: nil,
-            longitude: nil,
+            phoneNumber: data?.mobile ?? data?.contactNo,
+            address: data?.address,
+            latitude: data?.latitude,
+            longitude: data?.longitude,
             imageURL: data?.image,
             roleID: data?.role ?? data?.userType
         )

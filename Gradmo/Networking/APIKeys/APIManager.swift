@@ -10,6 +10,8 @@ import Foundation
 
 class APIManager {
     static let shared = APIManager()
+    private static var isHandlingSessionExpiration = false
+
     private init() {}
 
     private func mergedHeaders(_ headers: HTTPHeaders?) -> HTTPHeaders {
@@ -19,6 +21,7 @@ class APIManager {
 
         let token = UserCache1.authtoken()
         if !token.isEmpty {
+            Self.isHandlingSessionExpiration = false
             finalHeaders["Authorization"] = "Bearer \(token)"
         }
 
@@ -37,6 +40,10 @@ class APIManager {
         headers: HTTPHeaders? = nil,
         expectsWrappedResponse: Bool = true
     ) async throws -> T {
+        LoaderManager.shared.show()
+        defer {
+            LoaderManager.shared.hide()
+        }
         
         let request = AF.request(url, method: method, parameters: parameters, encoding: encoding, headers: headers)
         
@@ -54,6 +61,11 @@ class APIManager {
                 responseData: data,
                 error: response.error
             )
+
+            if shouldRedirectToLogin(from: data) {
+                handleExpiredSession()
+                throw NetworkError.apiError("Authentication failed. Please log in again.")
+            }
             
             // Handle AFError if exists
             if let afError = response.error {
@@ -174,6 +186,11 @@ class APIManager {
         headers: HTTPHeaders? = nil,
         expectsWrappedResponse: Bool = true
     ) async throws -> T {
+        LoaderManager.shared.show()
+        defer {
+            LoaderManager.shared.hide()
+        }
+
         let merged = mergedHeaders(headers)
         let request = AF.upload(
             multipartFormData: { multipartFormData in
@@ -208,6 +225,11 @@ class APIManager {
                 responseData: data,
                 error: response.error
             )
+
+            if shouldRedirectToLogin(from: data) {
+                handleExpiredSession()
+                throw NetworkError.apiError("Authentication failed. Please log in again.")
+            }
 
             if let afError = response.error {
                 if let urlError = afError.underlyingError as? URLError, urlError.code == .notConnectedToInternet {
@@ -285,7 +307,9 @@ class APIManager {
             print("📤 Request Body: NONE")
         }
 
-        if let data = responseData,
+        if shouldRedactLog(for: url) {
+            print("📥 Response JSON: <redacted sensitive credentials>")
+        } else if let data = responseData,
            let json = try? JSONSerialization.jsonObject(with: data, options: .mutableContainers) {
             print("📥 Response JSON: \(json)")
         } else {
@@ -299,6 +323,10 @@ class APIManager {
         }
         
         print("================= 🌐 API LOG END =================\n")
+    }
+
+    private func shouldRedactLog(for url: URLConvertible) -> Bool {
+        "\(url)".contains(API.defaultRequirementsAPI)
     }
 
     private func decodeResponse<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
@@ -332,6 +360,57 @@ class APIManager {
         }
 
         return codingPath.map(\.stringValue).joined(separator: ".")
+    }
+
+    private func shouldRedirectToLogin(from data: Data) -> Bool {
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return false
+        }
+
+        let statusIsFalse: Bool
+        if let boolStatus = json["status"] as? Bool {
+            statusIsFalse = boolStatus == false
+        } else if let stringStatus = json["status"] as? String {
+            let normalizedStatus = stringStatus.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            statusIsFalse = normalizedStatus == "false" || normalizedStatus == "failed" || normalizedStatus == "failure"
+        } else {
+            statusIsFalse = false
+        }
+
+        let message = [
+            json["msg"] as? String,
+            json["message"] as? String,
+            json["error"] as? String
+        ]
+            .compactMap { $0 }
+            .joined(separator: " ")
+            .lowercased()
+
+        guard statusIsFalse else {
+            return false
+        }
+
+        return message.contains("authentication failed")
+            || message.contains("log in again")
+            || message.contains("login again")
+            || message.contains("unauthorized")
+            || message.contains("token expired")
+            || message.contains("invalid token")
+    }
+
+    private func handleExpiredSession() {
+        DispatchQueue.main.async {
+            guard !Self.isHandlingSessionExpiration else {
+                return
+            }
+
+            Self.isHandlingSessionExpiration = true
+            let currentRole = UserCache.getUserRole()
+            UserCache.logout()
+            CommonClass.shared.moveToLoginScreen(selectedRole: currentRole)
+        }
     }
 
 }
@@ -393,6 +472,10 @@ class APIService: RequestSender {
         resultType: T.Type,
         IsAuthTokenAllowed: Bool
     ) async throws -> (result: T?, status: Int) {
+        LoaderManager.shared.show()
+        defer {
+            LoaderManager.shared.hide()
+        }
         
         // Default headers
         var header: HTTPHeaders = ["Content-Type": "application/json"]

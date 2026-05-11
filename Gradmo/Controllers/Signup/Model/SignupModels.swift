@@ -77,9 +77,9 @@ struct SignupUpsertResponse: Decodable {
         data = try container.decodeIfPresent(SignupUserData.self, forKey: .data)
         otp = try container.decodeLossyIntIfPresent(forKey: .otp)
 
-        if let statusString = try container.decodeIfPresent(String.self, forKey: .status) {
+        if let statusString = try? container.decodeIfPresent(String.self, forKey: .status) {
             status = statusString
-        } else if let statusBool = try container.decodeIfPresent(Bool.self, forKey: .status) {
+        } else if let statusBool = try? container.decodeIfPresent(Bool.self, forKey: .status) {
             status = statusBool ? "true" : "false"
         } else {
             status = "false"
@@ -90,9 +90,9 @@ struct SignupUpsertResponse: Decodable {
 struct SignupUserData: Decodable {
     let userType: String?
     let userId: String?
-    let studentId: String?
-    let teacherId: String?
-    let instituteId: String?
+    let studentId: Int?
+    let teacherId: Int?
+    let instituteId: Int?
     let name: String?
     let email: String?
     let mobile: String?
@@ -110,7 +110,7 @@ struct SignupUserData: Decodable {
     let pincode: String?
 
     var resolvedUserID: String? {
-        userId ?? studentId ?? teacherId ?? instituteId
+        userId ?? studentId.map(String.init) ?? teacherId.map(String.init) ?? instituteId.map(String.init)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -141,9 +141,9 @@ struct SignupUserData: Decodable {
 
         userType = try container.decodeLossyStringIfPresent(forKey: .userType)
         userId = try container.decodeLossyStringIfPresent(forKey: .userId)
-        studentId = try container.decodeLossyStringIfPresent(forKey: .studentId)
-        teacherId = try container.decodeLossyStringIfPresent(forKey: .teacherId)
-        instituteId = try container.decodeLossyStringIfPresent(forKey: .instituteId)
+        studentId = try container.decodeLossyIntIfPresent(forKey: .studentId)
+        teacherId = try container.decodeLossyIntIfPresent(forKey: .teacherId)
+        instituteId = try container.decodeLossyIntIfPresent(forKey: .instituteId)
         name = try container.decodeLossyStringIfPresent(forKey: .name)
         email = try container.decodeLossyStringIfPresent(forKey: .email)
         mobile = try container.decodeLossyStringIfPresent(forKey: .mobile)

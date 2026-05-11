@@ -65,6 +65,12 @@ class UserCache:NSObject {
     class func address() -> String {
         return UserDefaults.standard.object(forKey: SessionUser.address) as? String ?? ""
     }
+    class func latitude() -> String {
+        return UserDefaults.standard.string(forKey: SessionUser.latitude) ?? UserCache.defaultCoordinateValue
+    }
+    class func longitude() -> String {
+        return UserDefaults.standard.string(forKey: SessionUser.longitude) ?? UserCache.defaultCoordinateValue
+    }
     class func country() -> String {
         return UserDefaults.standard.string(forKey: UserCacheKeys.country) ?? ""
     }
@@ -78,13 +84,37 @@ class UserCache:NSObject {
         return UserDefaults.standard.string(forKey: UserCacheKeys.grade) ?? ""
     }
     class func studentID() -> String {
-        return UserDefaults.standard.string(forKey: UserCacheKeys.studentId) ?? ""
+        if let stringValue = UserDefaults.standard.string(forKey: UserCacheKeys.studentId) {
+            return stringValue
+        }
+
+        if let intValue = UserDefaults.standard.object(forKey: UserCacheKeys.studentId) as? Int {
+            return String(intValue)
+        }
+
+        return ""
     }
     class func teacherID() -> String {
-        return UserDefaults.standard.string(forKey: UserCacheKeys.teacherId) ?? ""
+        if let stringValue = UserDefaults.standard.string(forKey: UserCacheKeys.teacherId) {
+            return stringValue
+        }
+
+        if let intValue = UserDefaults.standard.object(forKey: UserCacheKeys.teacherId) as? Int {
+            return String(intValue)
+        }
+
+        return ""
     }
     class func instituteID() -> String {
-        return UserDefaults.standard.string(forKey: UserCacheKeys.instituteId) ?? ""
+        if let stringValue = UserDefaults.standard.string(forKey: UserCacheKeys.instituteId) {
+            return stringValue
+        }
+
+        if let intValue = UserDefaults.standard.object(forKey: UserCacheKeys.instituteId) as? Int {
+            return String(intValue)
+        }
+
+        return ""
     }
     class func currentScopedUserID(for role: UserRole) -> String {
         switch role {
@@ -103,6 +133,24 @@ class UserCache:NSObject {
     class func deviceToken()->String {
         return UserDefaults.standard.object(forKey: SessionUser.deviceToken) as? String ?? ""
     }
+    class func saveCoordinates(latitude: Double?, longitude: Double?) {
+        let userDefaults = UserDefaults.standard
+        userDefaults.setValue(latitude.formattedCoordinate, forKey: SessionUser.latitude)
+        userDefaults.setValue(longitude.formattedCoordinate, forKey: SessionUser.longitude)
+        userDefaults.synchronize()
+    }
+
+    class func printSavedDefaults() {
+        let defaults = UserDefaults.standard.dictionaryRepresentation()
+        let sortedKeys = defaults.keys.sorted()
+
+        debugPrint("===== Saved UserDefaults =====")
+        sortedKeys.forEach { key in
+            debugPrint("\(key): \(String(describing: defaults[key]!))")
+        }
+        debugPrint("===== End UserDefaults =====")
+    }
+
     class func logout() {
         let didSeeOnboarding = UserDefaults.standard.bool(forKey: LoginKeys.didSeeOnboarding)
         UserDefaults.standard.set(false, forKey: LoginKeys.isLoggedIn)
@@ -169,8 +217,8 @@ extension UserCache {
         userDefault.setValue(model.countryCode, forKey: SessionUser.countryCode)
         userDefault.setValue(model.phoneNumber, forKey: SessionUser.phone)
         userDefault.setValue(model.address, forKey: SessionUser.address)
-        userDefault.setValue(model.latitude, forKey: SessionUser.latitude)
-        userDefault.setValue(model.longitude, forKey: SessionUser.longitude)
+        userDefault.setValue(model.latitude.formattedCoordinate, forKey: SessionUser.latitude)
+        userDefault.setValue(model.longitude.formattedCoordinate, forKey: SessionUser.longitude)
 
 //        let roles = model.roles ?? []
 //        userDefault.setValue(roles, forKey: SessionUser.roles)
@@ -201,8 +249,8 @@ extension UserCache {
         userDefault.setValue(model.countryCode, forKey: SessionUser.countryCode)
         userDefault.setValue(model.phoneNumber, forKey: SessionUser.phone)
         userDefault.setValue(model.address, forKey: SessionUser.address)
-        userDefault.setValue(model.latitude, forKey: SessionUser.latitude)
-        userDefault.setValue(model.longitude, forKey: SessionUser.longitude)
+        userDefault.setValue(model.latitude.formattedCoordinate, forKey: SessionUser.latitude)
+        userDefault.setValue(model.longitude.formattedCoordinate, forKey: SessionUser.longitude)
         userDefault.setValue(model.imageURL, forKey: SessionUser.profileImage)
         userDefault.setValue(model.roleID, forKey: SessionUser.roleId)
 
@@ -229,8 +277,8 @@ extension UserCache {
             countryCode: nil,
             phoneNumber: model.mobile,
             address: model.address,
-            latitude: nil,
-            longitude: nil,
+            latitude: model.latitude,
+            longitude: model.longitude,
             imageURL: model.image,
             roleID: model.userType
         )
@@ -245,7 +293,16 @@ extension UserCache {
         userDefault.synchronize()
     }
 
-    func saveScopedUserIDs(studentId: String?, teacherId: String?, instituteId: String?) {
+    func saveLoginProfileFields(country: String?, pincode: String?, schoolCollegeName: String?, grade: String?) {
+        let userDefault = UserDefaults.standard
+        userDefault.setValue(country, forKey: UserCacheKeys.country)
+        userDefault.setValue(pincode, forKey: UserCacheKeys.pincode)
+        userDefault.setValue(schoolCollegeName, forKey: UserCacheKeys.schoolCollegeName)
+        userDefault.setValue(grade, forKey: UserCacheKeys.grade)
+        userDefault.synchronize()
+    }
+
+    func saveScopedUserIDs(studentId: Int?, teacherId: Int?, instituteId: Int?) {
         let userDefault = UserDefaults.standard
         userDefault.setValue(studentId, forKey: UserCacheKeys.studentId)
         userDefault.setValue(teacherId, forKey: UserCacheKeys.teacherId)
@@ -266,6 +323,8 @@ extension UserCache {
                                imageURL: String,
                                userID: String,
                                roleID: String,
+                               latitude: String,
+                               longitude: String,
                                token: String?) {
         let nameParts = name.split(separator: " ").map(String.init)
         let firstName = nameParts.first
@@ -283,8 +342,8 @@ extension UserCache {
             countryCode: nil,
             phoneNumber: phone,
             address: address,
-            latitude: nil,
-            longitude: nil,
+            latitude: Double(latitude),
+            longitude: Double(longitude),
             imageURL: imageURL,
             roleID: roleID
         )
@@ -298,6 +357,17 @@ extension UserCache {
         userDefault.setValue(grade, forKey: UserCacheKeys.grade)
         userDefault.synchronize()
     }
+}
+
+private extension Optional where Wrapped == Double {
+    var formattedCoordinate: String {
+        let value = self ?? 0
+        return String(format: "%.4f", value)
+    }
+}
+
+private extension UserCache {
+    static let defaultCoordinateValue = "0.0000"
 }
 
 private enum UserCacheKeys {
@@ -314,6 +384,22 @@ private enum UserCacheKeys {
     static let studentId = "com.motivaid.usercache.studentId"
     static let teacherId = "com.motivaid.usercache.teacherId"
     static let instituteId = "com.motivaid.usercache.instituteId"
+    static let paymentGatewayId = "com.gradmo.defaults.paymentGateway.id"
+    static let paymentGateway = "com.gradmo.defaults.paymentGateway.gateway"
+    static let razorpayKeyID = "com.gradmo.defaults.razorpay.keyID"
+    static let razorpaySecretKey = "com.gradmo.defaults.razorpay.secretKey"
+    static let razorpayWebhookSecret = "com.gradmo.defaults.razorpay.webhookSecret"
+    static let razorpayMode = "com.gradmo.defaults.razorpay.mode"
+    static let razorpayStatus = "com.gradmo.defaults.razorpay.status"
+    static let zoomId = "com.gradmo.defaults.zoom.id"
+    static let zoomAPIKey = "com.gradmo.defaults.zoom.apiKey"
+    static let zoomSDKKey = "com.gradmo.defaults.zoom.sdkKey"
+    static let zoomSecretKey = "com.gradmo.defaults.zoom.secretKey"
+    static let zoomSDKSecret = "com.gradmo.defaults.zoom.sdkSecret"
+    static let zoomJWTToken = "com.gradmo.defaults.zoom.jwtToken"
+    static let zoomDomain = "com.gradmo.defaults.zoom.domain"
+    static let zoomMode = "com.gradmo.defaults.zoom.mode"
+    static let zoomStatus = "com.gradmo.defaults.zoom.status"
 }
 
 extension UserCache {
@@ -366,5 +452,73 @@ extension UserCache {
         UserDefaults.standard.removeObject(forKey: UserCacheKeys.region)
         UserDefaults.standard.removeObject(forKey: UserCacheKeys.fafsaLink)
         UserDefaults.standard.removeObject(forKey: UserCacheKeys.casfaLink)
+    }
+
+    static func savePaymentGatewayCredentials(
+        id: String?,
+        gateway: String?,
+        keyID: String?,
+        secretKey: String?,
+        webhookSecret: String?,
+        mode: String?,
+        status: String?
+    ) {
+        let userDefaults = UserDefaults.standard
+        userDefaults.setValue(id, forKey: UserCacheKeys.paymentGatewayId)
+        userDefaults.setValue(gateway, forKey: UserCacheKeys.paymentGateway)
+        userDefaults.setValue(keyID, forKey: UserCacheKeys.razorpayKeyID)
+        userDefaults.setValue(secretKey, forKey: UserCacheKeys.razorpaySecretKey)
+        userDefaults.setValue(webhookSecret, forKey: UserCacheKeys.razorpayWebhookSecret)
+        userDefaults.setValue(mode, forKey: UserCacheKeys.razorpayMode)
+        userDefaults.setValue(status, forKey: UserCacheKeys.razorpayStatus)
+        userDefaults.synchronize()
+    }
+
+    static func razorpayKeyID() -> String {
+        UserDefaults.standard.string(forKey: UserCacheKeys.razorpayKeyID) ?? ""
+    }
+
+    static func razorpaySecretKey() -> String {
+        UserDefaults.standard.string(forKey: UserCacheKeys.razorpaySecretKey) ?? ""
+    }
+
+    static func razorpayWebhookSecret() -> String {
+        UserDefaults.standard.string(forKey: UserCacheKeys.razorpayWebhookSecret) ?? ""
+    }
+
+    static func saveZoomCredentials(
+        id: String?,
+        apiKey: String?,
+        sdkKey: String?,
+        secretKey: String?,
+        sdkSecret: String?,
+        jwtToken: String?,
+        domain: String?,
+        mode: String?,
+        status: String?
+    ) {
+        let userDefaults = UserDefaults.standard
+        userDefaults.setValue(id, forKey: UserCacheKeys.zoomId)
+        userDefaults.setValue(apiKey, forKey: UserCacheKeys.zoomAPIKey)
+        userDefaults.setValue(sdkKey, forKey: UserCacheKeys.zoomSDKKey)
+        userDefaults.setValue(secretKey, forKey: UserCacheKeys.zoomSecretKey)
+        userDefaults.setValue(sdkSecret, forKey: UserCacheKeys.zoomSDKSecret)
+        userDefaults.setValue(jwtToken, forKey: UserCacheKeys.zoomJWTToken)
+        userDefaults.setValue(domain, forKey: UserCacheKeys.zoomDomain)
+        userDefaults.setValue(mode, forKey: UserCacheKeys.zoomMode)
+        userDefaults.setValue(status, forKey: UserCacheKeys.zoomStatus)
+        userDefaults.synchronize()
+    }
+
+    static func zoomSDKDomain() -> String {
+        UserDefaults.standard.string(forKey: UserCacheKeys.zoomDomain) ?? ""
+    }
+
+    static func zoomSDKJWTToken() -> String {
+        UserDefaults.standard.string(forKey: UserCacheKeys.zoomJWTToken) ?? ""
+    }
+
+    static func zoomSecretKey() -> String {
+        UserDefaults.standard.string(forKey: UserCacheKeys.zoomSecretKey) ?? ""
     }
 }

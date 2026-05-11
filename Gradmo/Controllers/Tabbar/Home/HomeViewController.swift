@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import SDWebImage
 
 class HomeViewController: UIViewController {
 
@@ -29,11 +28,7 @@ class HomeViewController: UIViewController {
     @IBOutlet weak var searchTeacherViewTextField: UITextField!
     @IBOutlet weak var myBatchesTableView: UITableView!
     
-    private let bannerItems: [UIImage?] = [
-        UIImage(named: "institutePlaceholder"),
-        UIImage(named: "onbardingTeacher"),
-        UIImage(named: "deadEndPlaceholder")
-    ]
+    private var bannerItems: [BannerSliderItem] = []
 
     private var bannerAutoScrollTimer: Timer?
     private var currentBannerIndex = 0
@@ -47,55 +42,18 @@ class HomeViewController: UIViewController {
     private var sideMenuViewController: SideMenuViewController?
     private var isSideMenuVisible = false
     private let bannerLoopMultiplier = 200
+    private var nearbyInstitutes: [InstituteListingItem] = []
+    private var nearbyInstituteFetchTask: Task<Void, Never>?
+    private var enrolledBatchCountTask: Task<Void, Never>?
+    private var teacherBatchListTask: Task<Void, Never>?
+    private var hasRefreshedAppDefaults = false
 
-    private let nearbyInstitutes: [NearbyInstitute] = [
-        NearbyInstitute(
-            name: "Apex Commerce Academy",
-            address: "Salt Lake, KolkataSalt Lake, KolkataSalt Lake, KolkataSalt Lake, KolkataSalt Lake, Kolkata",
-            rating: 4.8,
-            image: UIImage(named: "institutePlaceholder"),
-            modes: [.online, .offline]
-        ),
-        NearbyInstitute(
-            name: "Future Minds Institute",
-            address: "Park Street, Kolkata",
-            rating: 4.6,
-            image: UIImage(named: "institutePlaceholder"),
-            modes: [.hybrid, .offline]
-        ),
-        NearbyInstitute(
-            name: "Scholars Point",
-            address: "New Town, Kolkata",
-            rating: 4.9,
-            image: UIImage(named: "institutePlaceholder"),
-            modes: [.online, .hybrid, .offline]
-        )
-    ]
-
-    private let myBatches: [TeacherBatch] = [
-        TeacherBatch(
-            name: "Class 10 Mathematics",
-            teacherName: "Rishabh Tyagi",
-            timing: "4:00 PM - 5:30 PM",
-            image: UIImage(named: "institutePlaceholder")
-        ),
-        TeacherBatch(
-            name: "Science Foundation",
-            teacherName: "Ujjwal Gupta",
-            timing: "10:00 AM - 11:30 AM",
-            image: UIImage(named: "bannerPlaceholder")
-        ),
-        TeacherBatch(
-            name: "Physics Advanced",
-            teacherName: "Prem Chandra",
-            timing: "2:00 PM - 4:00 PM",
-            image: UIImage(named: "institutePlaceholder")
-        )
-    ]
+    private var myBatches: [TeacherBatch] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupCollectionView()
+        fetchBannerItems()
         startBannerAutoScroll()
     }
 
@@ -121,6 +79,9 @@ class HomeViewController: UIViewController {
 
     deinit {
         bannerAutoScrollTimer?.invalidate()
+        nearbyInstituteFetchTask?.cancel()
+        enrolledBatchCountTask?.cancel()
+        teacherBatchListTask?.cancel()
     }
     
     @IBAction func sideMenuButtonTapped(_ sender: UIButton!){
@@ -130,29 +91,60 @@ class HomeViewController: UIViewController {
     
 //    StudentView Button
     @IBAction func seeAllButtonTapped(_ sender: UIButton!){
-        openSearchInstituteScreen()
+        openSearchInstituteScreen(title: "Institutes")
     }
     
     @IBAction func searchStudentViewButtonTapped(_ sender: UIButton!){
-        openSearchInstituteScreen()
+        openSearchInstituteScreen(title: "Search Institute")
     }
     
 }
 
 extension HomeViewController{
-    private struct NearbyInstitute {
-        let name: String
-        let address: String
-        let rating: Double
-        let image: UIImage?
-        let modes: [InstituteMode]
-    }
-
     private struct TeacherBatch {
+        let batchID: Int?
         let name: String
         let teacherName: String
         let timing: String
         let image: UIImage?
+        let imageURL: String?
+        let description: String?
+    }
+
+    func fetchBannerItems() {
+        Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let banners = try await BannerSliderService.fetchBanners()
+                await MainActor.run {
+                    self.applyBannerItems(banners)
+                    self.refreshAppDefaultsAfterFirstHomeAPI()
+                }
+            } catch {
+                await MainActor.run {
+                    self.applyBannerItems([])
+                    self.refreshAppDefaultsAfterFirstHomeAPI()
+                }
+            }
+        }
+    }
+
+    func applyBannerItems(_ items: [BannerSliderItem]) {
+        stopBannerAutoScroll()
+        bannerItems = items
+        currentBannerIndex = 0
+        hasInitializedInfiniteBannerPosition = false
+        bannerCollectionView.reloadData()
+        bannerCollectionView.layoutIfNeeded()
+        configureInfiniteBannerStartIfNeeded()
+        startBannerAutoScroll()
+    }
+
+    func refreshAppDefaultsAfterFirstHomeAPI() {
+        guard !hasRefreshedAppDefaults else { return }
+        hasRefreshedAppDefaults = true
+        AppDefaultsService.refreshIfAuthenticated()
     }
 
     func configureHomeViewForCurrentRole() {
@@ -183,7 +175,7 @@ extension HomeViewController{
 
     func setupStudentView() {
         setupSharedHeader()
-        totalEnrollmentInBatchesCountLabel.text = "You’re enrolled in 3 active batches"
+        updateEnrollmentCountLabel(count: nil)
         searchTextField.placeholder = "Search an institute to enroll"
         searchTextField.delegate = self
         searchTextField.setLeftPaddingPoints(40)
@@ -191,6 +183,8 @@ extension HomeViewController{
         searchTextField.layer.cornerRadius = self.searchTextField.frame.height / 2
         searchTextField.layer.masksToBounds = true
         seeAllButton.setTitle("See all", for: .normal)
+        fetchEnrolledBatchCount()
+        fetchNearbyInstitutes()
     }
     
     func setupTeacherView() {
@@ -202,6 +196,58 @@ extension HomeViewController{
         searchTeacherViewTextField.layer.cornerRadius = self.searchTeacherViewTextField.frame.height / 2
         searchTeacherViewTextField.layer.masksToBounds = true
         myBatchesTableView.reloadData()
+        fetchTeacherBatches()
+    }
+
+    func openTeacherAttendanceScreen() {
+        let storyboard = UIStoryboard(name: "Home", bundle: nil)
+        guard let teacherAttendanceViewController = storyboard.instantiateViewController(
+            withIdentifier: "TeacherAttendanceViewController"
+        ) as? TeacherAttendanceViewController else {
+            return
+        }
+
+        teacherAttendanceViewController.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(teacherAttendanceViewController, animated: true)
+    }
+
+    func openCreateAssessmentScreen() {
+        let storyboard = UIStoryboard(name: "Home", bundle: nil)
+        guard let createAssessmentViewController = storyboard.instantiateViewController(
+            withIdentifier: "CreateAssessmentViewController"
+        ) as? CreateAssessmentViewController else {
+            return
+        }
+
+        createAssessmentViewController.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(createAssessmentViewController, animated: true)
+    }
+
+    private func openBatchDetails(for batch: TeacherBatch) {
+        let storyboard = UIStoryboard(name: "Home", bundle: nil)
+        guard let batchDetailViewController = storyboard.instantiateViewController(
+            withIdentifier: "BatchDetailViewController"
+        ) as? BatchDetailViewController else {
+            return
+        }
+
+        batchDetailViewController.batchDetail = .init(
+            batchID: batch.batchID,
+            instituteName: "Gradmo",
+            batchName: batch.name,
+            teacherName: batch.teacherName,
+            time: batch.timing,
+            rating: "4.8",
+            subject: "Commerce",
+            grade: "Grade 12",
+            image: batch.image,
+            imageURL: batch.imageURL,
+            batchPriceText: nil,
+            batchOfferPriceText: nil
+        )
+        batchDetailViewController.selectedBatchID = batch.batchID
+        batchDetailViewController.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(batchDetailViewController, animated: true)
     }
 
     func setupCollectionView(){
@@ -263,16 +309,15 @@ extension HomeViewController{
     }
 
     func bannerCardWidth(for collectionView: UICollectionView) -> CGFloat {
-        return collectionView.bounds.width * 0.83
+        return collectionView.bounds.width
     }
 
     func bannerSpacing(for collectionView: UICollectionView) -> CGFloat {
-        return collectionView.bounds.width * 0.04
+        return 0
     }
 
     func bannerSectionInsets(for collectionView: UICollectionView) -> UIEdgeInsets {
-        let trailingInset = max(0, collectionView.bounds.width - bannerCardWidth(for: collectionView))
-        return UIEdgeInsets(top: 0, left: 0, bottom: 0, right: trailingInset)
+        return .zero
     }
 
     func bannerScrollStep(for collectionView: UICollectionView) -> CGFloat {
@@ -466,20 +511,159 @@ extension HomeViewController{
         hideSideMenu()
     }
 
-    func openSearchInstituteScreen() {
+    func openSearchInstituteScreen(title: String = "Institutes") {
         let storyboard = UIStoryboard(name: "Home", bundle: nil)
         let viewController = storyboard.instantiateViewController(
             withIdentifier: "SearchInstituteViewController"
         ) as! SearchInstituteViewController
+        viewController.screenTitleText = title
+        viewController.shouldShowBackButton = true
         viewController.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(viewController, animated: true)
+    }
+
+    func fetchNearbyInstitutes() {
+        nearbyInstituteFetchTask?.cancel()
+
+        let request = InstituteListingRequest(
+            batchID: nil,
+            latitude: sanitized(UserCache.latitude()),
+            longitude: sanitized(UserCache.longitude()),
+            orderField: nil,
+            orderType: nil,
+            search: nil,
+            city: nil
+        )
+
+        nearbyInstituteFetchTask = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let response = try await InstituteListingService.fetchInstitutes(request: request)
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    self.nearbyInstitutes = Array(response.institutes.prefix(4))
+                    self.nearByInstituteCollectionView.reloadData()
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    self.nearbyInstitutes = []
+                    self.nearByInstituteCollectionView.reloadData()
+                }
+            }
+        }
+    }
+
+    func fetchEnrolledBatchCount() {
+        enrolledBatchCountTask?.cancel()
+        enrolledBatchCountTask = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let response = try await BatchListService.fetchEnrolledBatches()
+                guard !Task.isCancelled else { return }
+
+                let status = response.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let isSuccess = status == "true" || status == "1" || status == "success"
+                let count = isSuccess ? self.enrolledBatchCount(from: response) : 0
+
+                await MainActor.run {
+                    self.updateEnrollmentCountLabel(count: count)
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    self.updateEnrollmentCountLabel(count: 0)
+                }
+            }
+        }
+    }
+
+    func fetchTeacherBatches() {
+        teacherBatchListTask?.cancel()
+        teacherBatchListTask = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let response = try await BatchListService.fetchEnrolledBatches(
+                    parameters: [
+                        "page": 1,
+                        "limit": 10,
+                        "list": "All"
+                    ]
+                )
+                guard !Task.isCancelled else { return }
+
+                let status = response.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let isSuccess = status == "true" || status == "1" || status == "success"
+                let batches = isSuccess ? self.teacherBatches(from: response.data?.enrolledBatches ?? []) : []
+
+                await MainActor.run {
+                    self.myBatches = batches
+                    self.myBatchesTableView.reloadData()
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    self.myBatches = []
+                    self.myBatchesTableView.reloadData()
+                }
+            }
+        }
+    }
+
+    func enrolledBatchCount(from response: BatchListResponse) -> Int {
+        response.data?.pagination?.totalRecords
+            ?? response.data?.pagination?.total
+            ?? response.data?.enrolledBatches.count
+            ?? 0
+    }
+
+    private func teacherBatches(from items: [EnrolledBatchItem]) -> [TeacherBatch] {
+        items.map { item in
+            TeacherBatch(
+                batchID: item.batchID,
+                name: sanitized(item.batchName) ?? sanitized(item.title) ?? "Untitled Batch",
+                teacherName: sanitized(item.instructor) ?? "Not available",
+                timing: item.displayTiming,
+                image: UIImage(named: "institutePlaceholder"),
+                imageURL: sanitized(item.batchImage) ?? sanitized(item.logo),
+                description: sanitized(item.description)
+            )
+        }
+    }
+
+    func updateEnrollmentCountLabel(count: Int?) {
+        guard let count else {
+            totalEnrollmentInBatchesCountLabel.text = "Checking your enrolled batches..."
+            return
+        }
+
+        switch count {
+        case 0:
+            totalEnrollmentInBatchesCountLabel.text = "You’re not enrolled in any active batch"
+        case 1:
+            totalEnrollmentInBatchesCountLabel.text = "You’re enrolled in 1 active batch"
+        default:
+            totalEnrollmentInBatchesCountLabel.text = "You’re enrolled in \(count) active batches"
+        }
+    }
+
+    func sanitized(_ value: String?) -> String? {
+        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmedValue.isEmpty ? nil : trimmedValue
     }
 }
 
 extension HomeViewController: UITextFieldDelegate {
     func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
         if textField == searchTextField {
-            openSearchInstituteScreen()
+            openSearchInstituteScreen(title: "Search Institute")
             return false
         }
 
@@ -504,9 +688,16 @@ extension HomeViewController: UITableViewDelegate, UITableViewDataSource {
             batchName: batch.name,
             teacherName: batch.teacherName,
             timing: batch.timing,
-            image: batch.image
+            image: batch.image,
+            imageURL: batch.imageURL
         )
         return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        guard tableView == myBatchesTableView, UserCache.getUserRole() == .teacher else { return }
+        tableView.deselectRow(at: indexPath, animated: true)
+        openBatchDetails(for: myBatches[indexPath.row])
     }
 }
 
@@ -528,7 +719,12 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
                 return UICollectionViewCell()
             }
 
-            cell.configure(image: bannerItems[bannerDataIndex(for: indexPath.item)])
+            let banner = bannerItems[bannerDataIndex(for: indexPath.item)]
+            cell.configure(
+                imageURL: banner.imageURL,
+                placeholder: UIImage(named: "bannerPlaceholder")
+            )
+            cell.bannerImageView.layer.cornerRadius = 12
             return cell
         }
 
@@ -542,10 +738,15 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
         let institute = nearbyInstitutes[indexPath.item]
         cell.configure(
             name: institute.name,
-            address: institute.address,
-            rating: institute.rating,
-            image: institute.image,
-            modes: institute.modes
+            address: institute.formattedAddress,
+            ratingText: institute.displayRating,
+            imageURL: institute.imageURL,
+            placeholderImage: UIImage(named: "institutePlaceholder"),
+            modes: [
+                institute.supportsOnline ? .online : nil,
+                institute.supportsHybrid ? .hybrid : nil,
+                institute.supportsOffline ? .offline : nil
+            ].compactMap { $0 }
         )
 
         return cell
@@ -579,6 +780,28 @@ extension HomeViewController: UICollectionViewDelegate, UICollectionViewDataSour
         }
 
         return UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard collectionView == nearByInstituteCollectionView else { return }
+
+        let institute = nearbyInstitutes[indexPath.item]
+        let storyboard = UIStoryboard(name: "Home", bundle: nil)
+        guard let instituteDetailsViewController = storyboard.instantiateViewController(
+            withIdentifier: "InstituteDetailsViewController"
+        ) as? InstituteDetailsViewController else {
+            return
+        }
+
+        instituteDetailsViewController.selectedInstituteID = institute.instituteID
+        instituteDetailsViewController.instituteNameText = institute.name
+        instituteDetailsViewController.instituteAddressText = institute.formattedAddress
+        instituteDetailsViewController.instituteImageURLText = institute.imageURL
+        instituteDetailsViewController.instituteRatingText = institute.displayRating
+        instituteDetailsViewController.instituteMobileNumberText = sanitized(institute.mobile) ?? "Not available"
+        instituteDetailsViewController.instituteEmailText = sanitized(institute.email) ?? "Not available"
+        instituteDetailsViewController.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(instituteDetailsViewController, animated: true)
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {

@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Alamofire
 
 class UpdatePasswordViewController: UIViewController, UITextFieldDelegate {
 
@@ -213,7 +214,96 @@ extension UpdatePasswordViewController {
         }
 
         view.endEditing(true)
-        showToastSafely("Password details are valid. API integration is pending.")
+        changePassword(currentPassword: currentPassword, newPassword: password, confirmPassword: confirmPassword)
+    }
+
+    private func changePassword(currentPassword: String, newPassword: String, confirmPassword: String) {
+        submitButton.setEnabledStyle(false)
+        LoaderManager.shared.show()
+
+        let headers: HTTPHeaders = [
+            "Content-Type": "application/json"
+        ]
+        let parameters: [String: Any] = [
+            APIKeys.currentPassword: currentPassword,
+            APIKeys.newPassword: newPassword,
+            APIKeys.confirmPassword: confirmPassword
+        ]
+        let url = Constant.baseUrl + API.changePasswordAPI
+
+        Task {
+            do {
+                let response: ChangePasswordResponse = try await APIManager.shared.post(
+                    url,
+                    parameters: parameters,
+                    headers: headers,
+                    expectsWrappedResponse: false
+                )
+
+                await MainActor.run {
+                    LoaderManager.shared.hide()
+                    self.updateSubmitButton()
+
+                    guard response.isSuccess else {
+                        let message = response.msg ?? "Unable to change password"
+                        self.showToastSafely(message)
+
+                        if response.requiresRelogin {
+                            self.handleAuthenticationFailure()
+                        }
+                        return
+                    }
+
+                    self.showToastSafely(response.msg ?? "Password changed successfully")
+                    self.clearForm()
+                    self.updateSubmitButton()
+                    self.navigationController?.popViewController(animated: true)
+                }
+            } catch {
+                await MainActor.run {
+                    LoaderManager.shared.hide()
+                    self.updateSubmitButton()
+                    self.showToastSafely(self.errorMessage(from: error))
+                }
+            }
+        }
+    }
+
+    private func clearForm() {
+        yourPasswordTextfield.text = ""
+        newPasswordTextfield.text = ""
+        confirmNewPasswordTextfield.text = ""
+        lastValidationToastMessage = nil
+    }
+
+    private func handleAuthenticationFailure() {
+        let viewController = storyboard?.instantiateViewController(
+            withIdentifier: "LogInViewController"
+        ) as! LogInViewController
+        viewController.selectedRole = selectedRole
+        viewController.shouldHideCancelButton = true
+        navigationController?.setViewControllers([viewController], animated: true)
+    }
+
+    private func errorMessage(from error: Error) -> String {
+        if let networkError = error as? NetworkError {
+            switch networkError {
+            case .noInternetConnection:
+                return "No internet connection. Please try again."
+            case .apiError(let message):
+                return message
+            case .requestFailed(let message):
+                return message
+            case .validation(let apiError):
+                return apiError.error.first?.message ?? "Validation failed. Please check your input."
+            case .invalidURL:
+                return "Invalid request URL."
+            case .decodingError(let message):
+                return message
+            }
+        }
+
+        return error.localizedDescription
     }
 }
 
@@ -229,5 +319,19 @@ extension UpdatePasswordViewController {
             textField.resignFirstResponder()
         }
         return true
+    }
+}
+
+private struct ChangePasswordResponse: Decodable {
+    let status: String
+    let msg: String?
+    let code: String?
+
+    var isSuccess: Bool {
+        status.lowercased() == "true"
+    }
+
+    var requiresRelogin: Bool {
+        code == nil && msg?.localizedCaseInsensitiveContains("log in again") == true
     }
 }

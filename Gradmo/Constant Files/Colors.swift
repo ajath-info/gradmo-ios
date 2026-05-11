@@ -9,11 +9,10 @@ import Foundation
 import UIKit
 
 struct Colors{
-    static let darkBlue =   UIColor(named: "DarkBlue")
+    static let themeColor =   UIColor(named: "themeColor")
     static let lightBlue =   UIColor(named: "lightBlue")
     static let backgroundText =   UIColor(named: "backgroundText")
     
-    static let baseColorGray =   UIColor(named: "baseColor_Gray")
+    static let baseColorGray =   UIColor(named: "backgroundLightBlue")
     static let baseColorBlack =   UIColor(named: "baseColor_Black")
-    static let themeColor =   UIColor(named: "themeColor")
 }
